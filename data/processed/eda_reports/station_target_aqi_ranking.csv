@@ -1,0 +1,6 @@
+﻿station_name,observation_count,mean_target_aqi,median_target_aqi,std_target_aqi,min_target_aqi,max_target_aqi
+Los Angeles - Open-Meteo,26303,71.995,67.395,26.034,7.222,311.956
+Los Angeles - N. Main,50674,56.435,56.589,21.337,0.0,459.363
+Fresno - Garland,51615,52.606,51.745,32.489,0.0,389.843
+Fresno - Open-Meteo,26304,50.203,52.304,18.772,0.556,253.324
+"Downtown San Jose, California",26304,43.279,43.889,16.835,0.0,126.362

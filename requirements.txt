@@ -1,0 +1,15 @@
+pandas
+numpy
+scikit-learn
+lightgbm
+catboost
+xgboost
+matplotlib
+geopandas
+cartopy
+seaborn
+plotly
+openmeteo-requests
+requests-cache
+retry-requests
+urllib3==2.2.3

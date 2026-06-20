@@ -1,0 +1,44 @@
+configuration,check,value,interpretation
+dataset,target_aqi_is_pm25_proxy,8.526512829121202e-14,Near-zero value means target_aqi is deterministically derived from pm25_ug_m3.
+Short-term Autoregressive (Lag 1-3h),split_strategy,climate_context_aware,"Train/validation/test years are assigned by California climate context, with 2025 held out for final stress testing."
+Short-term Autoregressive (Lag 1-3h),train_years,"[2018, 2019, 2021, 2022, 2023, 2024]","Expected train years: 2018, 2019, 2021, 2022, 2023, 2024."
+Short-term Autoregressive (Lag 1-3h),validation_years,[2020],"Expected validation year: 2020, isolated as an extreme wildfire-context holdout for early stopping."
+Short-term Autoregressive (Lag 1-3h),test_years,[2025],Expected independent test year: 2025.
+Short-term Autoregressive (Lag 1-3h),post_validation_guard_hours,4,Early 2021 train targets inside this guard are removed so lag/rolling features do not reference the 2020 validation holdout.
+Short-term Autoregressive (Lag 1-3h),train_target_period,2018-01-01 16:00:00 to 2024-12-31 23:00:00,Climate-context-aware target split.
+Short-term Autoregressive (Lag 1-3h),validation_target_period,2020-01-01 00:00:00 to 2020-12-31 23:00:00,Climate-context-aware target split.
+Short-term Autoregressive (Lag 1-3h),test_target_period,2025-01-01 00:00:00 to 2025-12-31 23:00:00,Climate-context-aware target split.
+Short-term Autoregressive (Lag 1-3h),test_station_distribution,"{'FRES_OPENMETEO': 8760, 'SJ_OPENMETEO': 8760, 'LA_OPENMETEO': 8759, 'FRES': 9, 'LA': 9}",Shows whether the independent test set is station-balanced.
+Short-term Autoregressive (Lag 1-3h),future_like_feature_names,[],Should be empty. Non-empty values indicate direct future leakage.
+Short-term Autoregressive (Lag 1-3h),current_pollutant_proxy_features_present,[],"Should be empty because final configurations use AQI history, not current pollutant proxy variables."
+Short-term Autoregressive (Lag 1-3h),minimum_lag_hours,1,Minimum lag across local and spatial history features.
+Short-term Autoregressive (Lag 1-3h),minimum_local_target_lag_hours,1,Should be 1 for short-term nowcasting and >= 24 for long-term forecasting.
+Short-term Autoregressive (Lag 1-3h),minimum_spatial_lag_hours,1,Spatial lags may include 6h and 12h in the 24h-ahead setting to model cross-city transport progression.
+Short-term Autoregressive (Lag 1-3h),recent_local_target_lag_features_under_24h,"['target_aqi_lag_1', 'target_aqi_lag_2', 'target_aqi_lag_3']",Should be empty for Long-term Forecasting (Lag 24h). Short-term nowcasting intentionally allows local lag 1-3h.
+Short-term Autoregressive (Lag 1-3h),intermediate_spatial_lag_features_6_12h,[],Expected in Long-term Forecasting (Lag 24h) after spatial-lag tuning; these features are cross-station transport signals.
+Short-term Autoregressive (Lag 1-3h),corr_y_test_with_target_aqi_lag_1,0.9273126117114069,High absolute correlation indicates strong target/proxy persistence.
+Short-term Autoregressive (Lag 1-3h),ridge_all_features_r2,0.8650971593228817,Baseline score with the current feature set.
+Short-term Autoregressive (Lag 1-3h),ridge_all_features_mae,6.333043021415719,Baseline score with the current feature set.
+Short-term Autoregressive (Lag 1-3h),ridge_without_pm_or_target_history_r2,0.36376642259239444,Large drop indicates that PM and target-history proxy features drive most predictive power.
+Short-term Autoregressive (Lag 1-3h),ridge_without_pm_or_target_history_mae,14.407665300151578,Large increase indicates harder meteorology-only forecasting.
+Long-term Forecasting (Lag 24h),split_strategy,climate_context_aware,"Train/validation/test years are assigned by California climate context, with 2025 held out for final stress testing."
+Long-term Forecasting (Lag 24h),train_years,"[2018, 2019, 2021, 2022, 2023, 2024]","Expected train years: 2018, 2019, 2021, 2022, 2023, 2024."
+Long-term Forecasting (Lag 24h),validation_years,[2020],"Expected validation year: 2020, isolated as an extreme wildfire-context holdout for early stopping."
+Long-term Forecasting (Lag 24h),test_years,[2025],Expected independent test year: 2025.
+Long-term Forecasting (Lag 24h),post_validation_guard_hours,215,Early 2021 train targets inside this guard are removed so lag/rolling features do not reference the 2020 validation holdout.
+Long-term Forecasting (Lag 24h),train_target_period,2018-01-12 01:00:00 to 2024-12-31 23:00:00,Climate-context-aware target split.
+Long-term Forecasting (Lag 24h),validation_target_period,2020-01-01 00:00:00 to 2020-12-31 23:00:00,Climate-context-aware target split.
+Long-term Forecasting (Lag 24h),test_target_period,2025-01-01 00:00:00 to 2025-12-31 23:00:00,Climate-context-aware target split.
+Long-term Forecasting (Lag 24h),test_station_distribution,"{'FRES_OPENMETEO': 8760, 'SJ_OPENMETEO': 8760, 'LA_OPENMETEO': 8759, 'FRES': 9, 'LA': 9}",Shows whether the independent test set is station-balanced.
+Long-term Forecasting (Lag 24h),future_like_feature_names,[],Should be empty. Non-empty values indicate direct future leakage.
+Long-term Forecasting (Lag 24h),current_pollutant_proxy_features_present,[],"Should be empty because final configurations use AQI history, not current pollutant proxy variables."
+Long-term Forecasting (Lag 24h),minimum_lag_hours,6,Minimum lag across local and spatial history features.
+Long-term Forecasting (Lag 24h),minimum_local_target_lag_hours,24,Should be 1 for short-term nowcasting and >= 24 for long-term forecasting.
+Long-term Forecasting (Lag 24h),minimum_spatial_lag_hours,6,Spatial lags may include 6h and 12h in the 24h-ahead setting to model cross-city transport progression.
+Long-term Forecasting (Lag 24h),recent_local_target_lag_features_under_24h,[],Should be empty for Long-term Forecasting (Lag 24h). Short-term nowcasting intentionally allows local lag 1-3h.
+Long-term Forecasting (Lag 24h),intermediate_spatial_lag_features_6_12h,"['spatial_target_aqi_fres_lag_6', 'spatial_target_aqi_fres_openmeteo_lag_6', 'spatial_target_aqi_la_lag_6', 'spatial_target_aqi_la_openmeteo_lag_6', 'spatial_target_aqi_sj_openmeteo_lag_6', 'spatial_target_aqi_fres_lag_12', 'spatial_target_aqi_fres_openmeteo_lag_12', 'spatial_target_aqi_la_lag_12', 'spatial_target_aqi_la_openmeteo_lag_12', 'spatial_target_aqi_sj_openmeteo_lag_12']",Expected in Long-term Forecasting (Lag 24h) after spatial-lag tuning; these features are cross-station transport signals.
+Long-term Forecasting (Lag 24h),corr_y_test_with_target_aqi_lag_24,0.5977319522162077,High absolute correlation indicates strong target/proxy persistence.
+Long-term Forecasting (Lag 24h),ridge_all_features_r2,0.45915702353695464,Baseline score with the current feature set.
+Long-term Forecasting (Lag 24h),ridge_all_features_mae,13.55422919742987,Baseline score with the current feature set.
+Long-term Forecasting (Lag 24h),ridge_without_pm_or_target_history_r2,0.31480470931815463,Large drop indicates that PM and target-history proxy features drive most predictive power.
+Long-term Forecasting (Lag 24h),ridge_without_pm_or_target_history_mae,15.1244323905635,Large increase indicates harder meteorology-only forecasting.

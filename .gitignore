@@ -1,0 +1,49 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Environment and local settings
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+.vs/
+
+# Model/output artifacts
+catboost_info/
+outputs/
+tmp/
+
+# Logs
+*.log
+
+# LaTeX build files
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Optional: uncomment these if you do not want to upload datasets to GitHub.
+# data/raw/
+# data/processed/

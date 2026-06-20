@@ -1,0 +1,6 @@
+source,station_id,station_name,rows,time_min,time_max,target_missing_pct,pm25_missing_pct,pm10_missing_pct,weather_missing_pct
+epa_aqs_station,FRES,Fresno - Garland,51615,2018-01-01 12:00:00,2025-01-01 08:00:00,0.0,0.0,0.02,0.0
+epa_aqs_station,LA,Los Angeles - N. Main,50674,2018-01-01 12:00:00,2025-01-01 08:00:00,0.0,0.0,0.13,0.0
+openmeteo,FRES_OPENMETEO,Fresno - Open-Meteo,26304,2023-01-01 00:00:00,2025-12-31 23:00:00,0.0,0.0,0.0,0.0
+openmeteo,LA_OPENMETEO,Los Angeles - Open-Meteo,26304,2023-01-01 00:00:00,2025-12-31 23:00:00,0.0,0.0,0.0,0.0
+openmeteo,SJ_OPENMETEO,"Downtown San Jose, California",26304,2023-01-01 00:00:00,2025-12-31 23:00:00,0.0,0.0,0.0,0.0
