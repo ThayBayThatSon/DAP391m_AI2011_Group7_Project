@@ -12,7 +12,8 @@ import requests
 import streamlit as st
 
 
-API_BASE_URL = os.getenv("AQI_API_URL", "http://127.0.0.1:8000")
+API_BASE_URL = os.getenv("AQI_API_URL", "").strip()
+USE_REMOTE_API = bool(API_BASE_URL)
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 REQUEST_TIMEOUT_SECONDS = 30
 PREDICTION_RETRY_ATTEMPTS = 4
@@ -35,6 +36,17 @@ STATIONS: dict[str, dict[str, float]] = {
     "Los Angeles": {"lat": 34.0522, "lon": -118.2437},
     "San Jose": {"lat": 37.3394, "lon": -121.8950},
 }
+
+
+@st.cache_resource(show_spinner=False)
+def load_local_prediction_engine():
+    from app import main as prediction_engine
+
+    prediction_engine.startup()
+    return prediction_engine
+
+
+PREDICTION_ENGINE = None if USE_REMOTE_API else load_local_prediction_engine()
 
 
 def parse_open_meteo_time(value: str) -> datetime:
@@ -87,6 +99,16 @@ def call_prediction_api(station_name: str, horizon: int, observed_at: datetime, 
         "observed_at": observed_at.isoformat(),
         **weather,
     }
+
+    if not USE_REMOTE_API:
+        if PREDICTION_ENGINE is None:
+            raise RuntimeError("Local prediction engine is not initialized.")
+        request = PREDICTION_ENGINE.PredictionRequest(**payload)
+        response = PREDICTION_ENGINE.predict(request)
+        if hasattr(response, "model_dump"):
+            return response.model_dump()
+        return response.dict()
+
     last_error: requests.HTTPError | None = None
     for attempt in range(1, PREDICTION_RETRY_ATTEMPTS + 1):
         response = PREDICTION_API_SESSION.post(

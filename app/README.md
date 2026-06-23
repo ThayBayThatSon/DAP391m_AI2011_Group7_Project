@@ -55,7 +55,17 @@ Notes:
 - If trained LightGBM model files are missing, the API uses a deterministic fallback predictor so the demo can still run.
 - On FastAPI startup, historical AQI lag rows are bootstrapped from `data/processed/california_aqi_model_ready.csv` when SQLite has no AQI history yet.
 
-## 3. Run the FastAPI Backend
+## 3. Run Demo With Streamlit Only
+
+For a simple demo on one machine, you only need Streamlit:
+
+```powershell
+streamlit run app/ui.py
+```
+
+In this mode, Streamlit imports the local prediction engine from `app/main.py` and runs prediction in the same Python process. You do not need to start `uvicorn`.
+
+## 4. Optional: Run the FastAPI Backend Separately
 
 From the project root:
 
@@ -104,15 +114,16 @@ Invoke-RestMethod `
   -Body $body
 ```
 
-## 4. Run the Streamlit Dashboard
+## 5. Run Streamlit Against a Separate Backend
 
 Open a second terminal from the project root:
 
 ```powershell
+$env:AQI_API_URL = "http://127.0.0.1:8000"
 streamlit run app/ui.py
 ```
 
-The dashboard calls the FastAPI backend at:
+When `AQI_API_URL` is set, the dashboard calls the FastAPI backend at:
 
 ```text
 http://127.0.0.1:8000
@@ -125,7 +136,7 @@ $env:AQI_API_URL = "http://127.0.0.1:8000"
 streamlit run app/ui.py
 ```
 
-## 5. Run the Background Data Collector
+## 6. Run the Background Data Collector
 
 Open a third terminal from the project root:
 
@@ -141,7 +152,19 @@ The worker:
 - Computes VPD, cyclic time features, and wind U/V components.
 - Upserts rows into `aqi_data.db`, table `meteorology_history`.
 
-## 6. Recommended Run Order
+## 7. Recommended Demo Run Order
+
+For demo:
+
+```powershell
+# Terminal 1
+streamlit run app/ui.py
+
+# Optional Terminal 2
+python app/data_collector.py
+```
+
+For separated API + UI:
 
 ```powershell
 # Terminal 1
@@ -154,7 +177,7 @@ streamlit run app/ui.py
 python app/data_collector.py
 ```
 
-## 7. Model Files
+## 8. Model Files
 
 Place trained LightGBM text models here:
 
@@ -168,7 +191,22 @@ The backend loads these paths automatically:
 - `target_hour_ahead = 1` uses `models/lightgbm_nowcast.txt`
 - `target_hour_ahead = 24` uses `models/lightgbm_forecast24h.txt`
 
-## 8. Leakage-Control Rules
+Generate both files from the panel training script:
+
+```powershell
+python scr/train_combined_panel_models.py --lightgbm-only
+```
+
+This trains only the production LightGBM models and exports:
+
+```text
+models/lightgbm_nowcast.txt
+models/lightgbm_forecast24h.txt
+```
+
+If the model files are absent, the app still runs with a deterministic fallback predictor for demo purposes.
+
+## 9. Leakage-Control Rules
 
 The backend excludes current PM2.5 and PM10 from the prediction matrix.
 
@@ -183,7 +221,7 @@ For `target_hour_ahead = 24`, it uses:
 - Cross-city spatial lags: 24h, 48h, 72h
 - No local AQI from t-1 through t-23
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 If FastAPI cannot start because dependencies are missing:
 
@@ -191,7 +229,7 @@ If FastAPI cannot start because dependencies are missing:
 pip install fastapi uvicorn pydantic pandas numpy lightgbm
 ```
 
-If Streamlit cannot connect to the API:
+If Streamlit cannot connect to the API when using `AQI_API_URL`:
 
 - Make sure `uvicorn app.main:app --reload` is still running.
 - Check that the API is available at `http://127.0.0.1:8000/health`.

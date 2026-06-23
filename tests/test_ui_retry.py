@@ -157,7 +157,7 @@ class DashboardPredictionModeTest(unittest.TestCase):
         module = importlib.util.module_from_spec(spec)
         assert spec.loader is not None
 
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, {"HOME": str(PROJECT_ROOT), "USERPROFILE": str(PROJECT_ROOT)}, clear=True):
             with patch.dict(sys.modules, {"streamlit": fake_streamlit, "app.main": fake_main}):
                 with patch.object(requests, "get", side_effect=fake_get):
                     with patch.object(requests, "Session", side_effect=FakeSession):
@@ -190,6 +190,7 @@ class DashboardPredictionModeTest(unittest.TestCase):
             )
 
         module.API_BASE_URL = "http://127.0.0.1:8000"
+        module.USE_REMOTE_API = True
         module.PREDICTION_API_SESSION.post_handler = fake_post
         with patch("time.sleep", return_value=None):
             result = module.call_prediction_api(

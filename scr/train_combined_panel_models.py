@@ -1,3 +1,4 @@
+import argparse
 import os
 import time
 import warnings
@@ -12,8 +13,16 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.preprocessing import StandardScaler
 
 import lightgbm as lgb
-from catboost import CatBoostRegressor
-from xgboost import XGBRegressor
+
+try:
+    from catboost import CatBoostRegressor
+except ImportError:
+    CatBoostRegressor = None
+
+try:
+    from xgboost import XGBRegressor
+except ImportError:
+    XGBRegressor = None
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -27,9 +36,14 @@ TEST_YEARS = [2025]
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_PATH = os.path.join(BASE_DIR, "data", "processed", "california_aqi_model_ready.csv")
 OUTPUT_DIR = os.path.join(BASE_DIR, "data", "processed")
+MODEL_DIR = os.path.join(BASE_DIR, "models")
 LEADERBOARD_PATH = os.path.join(OUTPUT_DIR, "california_aqi_model_leaderboard.csv")
 SCENARIO_PATH = os.path.join(OUTPUT_DIR, "california_aqi_scenario_evaluation.csv")
 PREDICTION_PATH = os.path.join(OUTPUT_DIR, "california_aqi_model_predictions.csv")
+MODEL_OUTPUT_PATHS = {
+    "Short-term Autoregressive (Lag 1-3h)": os.path.join(MODEL_DIR, "lightgbm_nowcast.txt"),
+    "Long-term Forecasting (Lag 24h)": os.path.join(MODEL_DIR, "lightgbm_forecast24h.txt"),
+}
 
 TARGET = "target_aqi"
 ID_COLS = ["source", "station_id", "station_name"]
@@ -46,10 +60,10 @@ CONFIGURATIONS = {
     },
     "Long-term Forecasting (Lag 24h)": {
         "horizon": 24,
-        "target_lags": [24, 48, 72, 168],
+        "target_lags": [24, 48, 72],
         "rolling_shift": 24,
-        "rolling_windows": [24, 72, 168],
-        "spatial_lags": [6, 12, 24, 48, 72],
+        "rolling_windows": [24, 72],
+        "spatial_lags": [24, 48, 72],
         "recent_lag_allowed": False,
     },
 }
@@ -232,6 +246,45 @@ def prepare_model_matrices(
     )
 
 
+def prepare_lightgbm_production_matrices(
+    X_train: pd.DataFrame,
+    X_val: pd.DataFrame,
+    X_test: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    numeric_features = [c for c in X_train.columns if c not in CAT_FEATURES]
+
+    train_numeric = X_train[numeric_features].astype(float)
+    val_numeric = X_val[numeric_features].astype(float)
+    test_numeric = X_test[numeric_features].astype(float)
+
+    train_cat = X_train[CAT_FEATURES].astype(str)
+    val_cat = X_val[CAT_FEATURES].astype(str)
+    test_cat = X_test[CAT_FEATURES].astype(str)
+
+    train_ohe = pd.get_dummies(train_cat, prefix=CAT_FEATURES, dtype=float)
+    ohe_columns = train_ohe.columns
+    val_ohe = pd.get_dummies(val_cat, prefix=CAT_FEATURES, dtype=float).reindex(columns=ohe_columns, fill_value=0.0)
+    test_ohe = pd.get_dummies(test_cat, prefix=CAT_FEATURES, dtype=float).reindex(columns=ohe_columns, fill_value=0.0)
+
+    X_train_lightgbm = pd.concat([train_numeric, train_ohe], axis=1)
+    X_val_lightgbm = pd.concat([val_numeric, val_ohe], axis=1)
+    X_test_lightgbm = pd.concat([test_numeric, test_ohe], axis=1)
+
+    return X_train_lightgbm, X_val_lightgbm, X_test_lightgbm
+
+
+def save_lightgbm_model(model: lgb.LGBMRegressor, configuration: str) -> str:
+    output_path = MODEL_OUTPUT_PATHS[configuration]
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    best_iteration = getattr(model, "best_iteration_", None)
+    if best_iteration:
+        model.booster_.save_model(output_path, num_iteration=best_iteration)
+    else:
+        model.booster_.save_model(output_path)
+    print(f"Saved LightGBM model: {output_path}", flush=True)
+    return output_path
+
+
 def climate_context_aware_split(
     X: pd.DataFrame,
     y: pd.Series,
@@ -326,16 +379,8 @@ def evaluate_scenarios(configuration: str, model_name: str, y_true: pd.Series, y
     return rows
 
 
-def model_dictionary():
-    return {
-        "Linear Ridge": Ridge(alpha=10.0),
-        "Random Forest": RandomForestRegressor(
-            n_estimators=250,
-            max_depth=6,
-            min_samples_leaf=5,
-            random_state=RANDOM_STATE,
-            n_jobs=-1,
-        ),
+def model_dictionary(lightgbm_only: bool = False):
+    models = {
         "LightGBM": lgb.LGBMRegressor(
             n_estimators=1200,
             learning_rate=0.01,
@@ -348,7 +393,25 @@ def model_dictionary():
             n_jobs=-1,
             verbosity=-1,
         ),
-        "CatBoost": CatBoostRegressor(
+    }
+
+    if lightgbm_only:
+        return models
+
+    models = {
+        "Linear Ridge": Ridge(alpha=10.0),
+        "Random Forest": RandomForestRegressor(
+            n_estimators=250,
+            max_depth=6,
+            min_samples_leaf=5,
+            random_state=RANDOM_STATE,
+            n_jobs=-1,
+        ),
+        **models,
+    }
+
+    if CatBoostRegressor is not None:
+        models["CatBoost"] = CatBoostRegressor(
             iterations=700,
             learning_rate=0.01,
             depth=4,
@@ -357,8 +420,10 @@ def model_dictionary():
             eval_metric="MAE",
             random_seed=RANDOM_STATE,
             verbose=False,
-        ),
-        "XGBoost": XGBRegressor(
+        )
+
+    if XGBRegressor is not None:
+        models["XGBoost"] = XGBRegressor(
             n_estimators=1000,
             learning_rate=0.03,
             max_depth=6,
@@ -373,11 +438,12 @@ def model_dictionary():
             early_stopping_rounds=EARLY_STOPPING_ROUNDS,
             random_state=RANDOM_STATE,
             n_jobs=-1,
-        ),
-    }
+        )
+
+    return models
 
 
-def run_configuration(configuration: str):
+def run_configuration(configuration: str, lightgbm_only: bool = False):
     print("\n" + "=" * 90, flush=True)
     print(f"COMBINED PANEL MODEL TRAINING: {configuration}", flush=True)
     print("=" * 90, flush=True)
@@ -427,23 +493,26 @@ def run_configuration(configuration: str):
         X_test_catboost,
         cat_features,
     ) = prepare_model_matrices(X_train, X_val, X_test)
+    X_train_lightgbm, X_val_lightgbm, X_test_lightgbm = prepare_lightgbm_production_matrices(X_train, X_val, X_test)
     print(f"General model feature count: {X_train_general.shape[1]}", flush=True)
+    print(f"Production LightGBM feature count: {X_train_lightgbm.shape[1]}", flush=True)
     print(f"CatBoost categorical features: {cat_features}", flush=True)
 
     predictions = {}
     leaderboard_rows = []
 
-    for name, model in model_dictionary().items():
+    for name, model in model_dictionary(lightgbm_only=lightgbm_only).items():
         print(f"\nTraining {name}...", flush=True)
         start = time.time()
         if isinstance(model, lgb.LGBMRegressor):
             model.fit(
-                X_train_general,
+                X_train_lightgbm,
                 y_train,
-                eval_set=[(X_val_general, y_val)],
+                eval_set=[(X_val_lightgbm, y_val)],
                 callbacks=[lgb.early_stopping(EARLY_STOPPING_ROUNDS, verbose=False)],
             )
-        elif isinstance(model, CatBoostRegressor):
+            save_lightgbm_model(model, configuration)
+        elif CatBoostRegressor is not None and isinstance(model, CatBoostRegressor):
             model.fit(
                 X_train_catboost,
                 y_train,
@@ -452,7 +521,7 @@ def run_configuration(configuration: str):
                 early_stopping_rounds=EARLY_STOPPING_ROUNDS,
                 verbose=False,
             )
-        elif isinstance(model, XGBRegressor):
+        elif XGBRegressor is not None and isinstance(model, XGBRegressor):
             model.fit(
                 X_train_general,
                 y_train,
@@ -462,8 +531,10 @@ def run_configuration(configuration: str):
         else:
             model.fit(X_train_general, y_train)
 
-        if isinstance(model, CatBoostRegressor):
+        if CatBoostRegressor is not None and isinstance(model, CatBoostRegressor):
             test_matrix = X_test_catboost
+        elif isinstance(model, lgb.LGBMRegressor):
+            test_matrix = X_test_lightgbm
         else:
             test_matrix = X_test_general
         pred = pd.Series(model.predict(test_matrix), index=y_test.index, name="prediction")
@@ -508,12 +579,23 @@ def run_configuration(configuration: str):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Train California AQI panel models.")
+    parser.add_argument(
+        "--lightgbm-only",
+        action="store_true",
+        help="Train only the production LightGBM models and export models/lightgbm_*.txt.",
+    )
+    args = parser.parse_args()
+
     all_leaderboards = []
     all_scenarios = []
     all_predictions = []
 
     for configuration in CONFIGURATIONS:
-        leaderboard, scenario_report, prediction_report = run_configuration(configuration)
+        leaderboard, scenario_report, prediction_report = run_configuration(
+            configuration,
+            lightgbm_only=args.lightgbm_only,
+        )
         all_leaderboards.append(leaderboard)
         all_scenarios.append(scenario_report)
         all_predictions.append(prediction_report)
@@ -522,15 +604,19 @@ if __name__ == "__main__":
     final_scenarios = pd.concat(all_scenarios, ignore_index=True)
     final_predictions = pd.concat(all_predictions, ignore_index=True)
 
-    final_leaderboard.to_csv(LEADERBOARD_PATH, index=False)
-    final_scenarios.to_csv(SCENARIO_PATH, index=False)
-    final_predictions.to_csv(PREDICTION_PATH, index=False)
-
     print("\n" + "=" * 90, flush=True)
     print("FINAL COMBINED PANEL LEADERBOARD", flush=True)
     print("=" * 90, flush=True)
     print(final_leaderboard.sort_values(["Configuration", "R2_Score"], ascending=[True, False]).to_string(index=False), flush=True)
 
-    print(f"\nSaved leaderboard: {LEADERBOARD_PATH}")
-    print(f"Saved scenario report: {SCENARIO_PATH}")
-    print(f"Saved predictions: {PREDICTION_PATH}")
+    if args.lightgbm_only:
+        print("\nLightGBM-only export complete. Benchmark CSV reports were not overwritten.")
+        for configuration, model_path in MODEL_OUTPUT_PATHS.items():
+            print(f"Saved {configuration}: {model_path}")
+    else:
+        final_leaderboard.to_csv(LEADERBOARD_PATH, index=False)
+        final_scenarios.to_csv(SCENARIO_PATH, index=False)
+        final_predictions.to_csv(PREDICTION_PATH, index=False)
+        print(f"\nSaved leaderboard: {LEADERBOARD_PATH}")
+        print(f"Saved scenario report: {SCENARIO_PATH}")
+        print(f"Saved predictions: {PREDICTION_PATH}")
