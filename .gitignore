@@ -1,0 +1,57 @@
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Local app/runtime files
+aqi_data.db
+*.sqlite
+*.sqlite3
+.cache.sqlite
+
+# Raw datasets are kept locally and regenerated/downloaded as needed
+data/raw/
+
+# Model training/runtime logs
+catboost_info/
+notebook/catboost_info/
+
+# Local agent/editor files
+.agents/
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+.vs/
+
+# Temporary/output folders
+outputs/
+tmp/
+
+# Logs
+*.log
+
+# LaTeX build files
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+
+# OS files
+Thumbs.db
+.DS_Store
