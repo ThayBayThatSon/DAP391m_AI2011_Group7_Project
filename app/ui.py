@@ -1,0 +1,270 @@
+from __future__ import annotations
+
+import math
+import os
+import time
+from datetime import datetime, timezone
+from typing import Any
+
+import altair as alt
+import pandas as pd
+import requests
+import streamlit as st
+
+
+API_BASE_URL = os.getenv("AQI_API_URL", "http://127.0.0.1:8000")
+OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
+REQUEST_TIMEOUT_SECONDS = 30
+PREDICTION_RETRY_ATTEMPTS = 4
+PREDICTION_RETRY_STATUS_CODES = {429, 502, 503, 504}
+PREDICTION_API_SESSION = requests.Session()
+PREDICTION_API_SESSION.trust_env = False
+
+WEATHER_VARIABLES = [
+    "temperature_2m",
+    "relative_humidity_2m",
+    "wind_speed_10m",
+    "wind_direction_10m",
+    "surface_pressure",
+    "rain",
+    "cloud_cover",
+]
+
+STATIONS: dict[str, dict[str, float]] = {
+    "Fresno": {"lat": 36.7378, "lon": -119.7871},
+    "Los Angeles": {"lat": 34.0522, "lon": -118.2437},
+    "San Jose": {"lat": 37.3394, "lon": -121.8950},
+}
+
+
+def parse_open_meteo_time(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def select_latest_hourly_record(payload: dict[str, Any]) -> tuple[datetime, dict[str, float]]:
+    hourly = payload.get("hourly") or {}
+    times = hourly.get("time") or []
+    if not times:
+        raise ValueError("Open-Meteo response did not contain hourly timestamps.")
+    now_utc = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    parsed_times = [parse_open_meteo_time(value) for value in times]
+    eligible_indices = [idx for idx, ts in enumerate(parsed_times) if ts <= now_utc]
+    selected_index = eligible_indices[-1] if eligible_indices else 0
+
+    values: dict[str, float] = {}
+    for variable in WEATHER_VARIABLES:
+        series = hourly.get(variable)
+        if series is None or selected_index >= len(series):
+            raise ValueError(f"Open-Meteo response is missing hourly variable: {variable}")
+        values[variable] = float(series[selected_index])
+    return parsed_times[selected_index], values
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def fetch_realtime_weather(station_name: str) -> tuple[datetime, dict[str, float]]:
+    station = STATIONS[station_name]
+    params = {
+        "latitude": station["lat"],
+        "longitude": station["lon"],
+        "hourly": ",".join(WEATHER_VARIABLES),
+        "timezone": "GMT",
+        "past_days": 1,
+        "forecast_days": 1,
+        "wind_speed_unit": "ms",
+    }
+    response = requests.get(OPEN_METEO_URL, params=params, timeout=REQUEST_TIMEOUT_SECONDS)
+    response.raise_for_status()
+    return select_latest_hourly_record(response.json())
+
+
+def call_prediction_api(station_name: str, horizon: int, observed_at: datetime, weather: dict[str, float]) -> dict[str, Any]:
+    payload = {
+        "station_name": station_name,
+        "target_hour_ahead": horizon,
+        "observed_at": observed_at.isoformat(),
+        **weather,
+    }
+    last_error: requests.HTTPError | None = None
+    for attempt in range(1, PREDICTION_RETRY_ATTEMPTS + 1):
+        response = PREDICTION_API_SESSION.post(
+            f"{API_BASE_URL.rstrip('/')}/predict",
+            json=payload,
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+        try:
+            response.raise_for_status()
+            return response.json()
+        except requests.HTTPError as exc:
+            last_error = exc
+            if response.status_code not in PREDICTION_RETRY_STATUS_CODES or attempt == PREDICTION_RETRY_ATTEMPTS:
+                raise
+            time.sleep(min(2 ** (attempt - 1), 4))
+
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("Prediction API request failed before receiving a response.")
+
+
+def vpd_kpa(temperature_c: float, relative_humidity_pct: float) -> float:
+    saturation_vapor_pressure = 0.6108 * math.exp((17.27 * temperature_c) / (temperature_c + 237.3))
+    actual_vapor_pressure = (relative_humidity_pct / 100.0) * saturation_vapor_pressure
+    return max(saturation_vapor_pressure - actual_vapor_pressure, 0.0)
+
+
+def aqi_category(aqi: float) -> tuple[str, str]:
+    if aqi <= 50:
+        return "Good", "#2ca25f"
+    if aqi <= 100:
+        return "Moderate", "#f2c94c"
+    if aqi <= 150:
+        return "Unhealthy for Sensitive Groups", "#f2994a"
+    if aqi <= 200:
+        return "Unhealthy", "#eb5757"
+    if aqi <= 300:
+        return "Very Unhealthy", "#9b51e0"
+    return "Hazardous", "#7f1d1d"
+
+
+def timeline_frame(prediction: dict[str, Any], horizon: int) -> pd.DataFrame:
+    confidence = prediction["confidence_interval"]
+    predicted_aqi = float(prediction["predicted_aqi"])
+    hours = list(range(0, horizon + 1))
+    if horizon == 0:
+        horizon = 1
+    return pd.DataFrame(
+        {
+            "Forecast Hour": hours,
+            "Predicted AQI": [predicted_aqi for _ in hours],
+            "Lower Bound": [
+                max(predicted_aqi - (predicted_aqi - confidence["lower"]) * (hour / max(horizon, 1)), 0)
+                for hour in hours
+            ],
+            "Upper Bound": [
+                min(predicted_aqi + (confidence["upper"] - predicted_aqi) * (hour / max(horizon, 1)), 500)
+                for hour in hours
+            ],
+        }
+    )
+
+
+def render_timeline_chart(frame: pd.DataFrame, color: str) -> None:
+    band = (
+        alt.Chart(frame)
+        .mark_area(opacity=0.22, color=color)
+        .encode(
+            x=alt.X("Forecast Hour:Q", title="Hours Ahead", scale=alt.Scale(domain=[0, max(frame["Forecast Hour"].max(), 1)])),
+            y=alt.Y("Lower Bound:Q", title="AQI", scale=alt.Scale(domain=[0, max(frame["Upper Bound"].max() + 20, 80)])),
+            y2="Upper Bound:Q",
+        )
+    )
+    line = (
+        alt.Chart(frame)
+        .mark_line(color=color, strokeWidth=3)
+        .encode(x="Forecast Hour:Q", y="Predicted AQI:Q")
+    )
+    points = (
+        alt.Chart(frame.tail(1))
+        .mark_circle(color=color, size=90)
+        .encode(x="Forecast Hour:Q", y="Predicted AQI:Q")
+    )
+    st.altair_chart((band + line + points).properties(height=360), width="stretch")
+
+
+st.set_page_config(page_title="California AQI Forecasting", page_icon="CA", layout="wide")
+st.markdown(
+    """
+    <style>
+    .main .block-container {
+        padding-top: 1.5rem;
+        max-width: 1180px;
+    }
+    .aqi-title {
+        font-size: 2.05rem;
+        font-weight: 760;
+        letter-spacing: 0;
+        margin-bottom: 0.15rem;
+    }
+    .aqi-subtitle {
+        color: #536471;
+        font-size: 1.02rem;
+        margin-bottom: 1rem;
+    }
+    .metric-strip {
+        border: 1px solid #e6edf3;
+        border-radius: 8px;
+        padding: 0.8rem 0.9rem;
+        background: #ffffff;
+    }
+    .critical-alert {
+        border-left: 8px solid #b91c1c;
+        background: #fff1f2;
+        color: #7f1d1d;
+        padding: 1rem 1.1rem;
+        border-radius: 8px;
+        font-weight: 740;
+        line-height: 1.45;
+        margin: 0.5rem 0 1rem 0;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown('<div class="aqi-title">California AQI Forecasting Dashboard</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="aqi-subtitle">Fresno, Los Angeles, and San Jose hourly AQI nowcasting with leakage-controlled 24-hour forecasting.</div>',
+    unsafe_allow_html=True,
+)
+
+left_panel, right_panel = st.columns([0.42, 0.58], gap="large")
+
+with left_panel:
+    station_name = st.selectbox("Station", list(STATIONS.keys()), index=0)
+    horizon = st.slider("Forecast Horizon", min_value=1, max_value=24, value=24, step=23, format="%d h")
+    station_frame = pd.DataFrame(
+        [{"lat": STATIONS[station_name]["lat"], "lon": STATIONS[station_name]["lon"]}]
+    )
+    st.map(station_frame, latitude="lat", longitude="lon", zoom=8, width="stretch")
+
+try:
+    with right_panel:
+        with st.spinner("Updating forecast..."):
+            observed_at, weather = fetch_realtime_weather(station_name)
+            vpd = vpd_kpa(weather["temperature_2m"], weather["relative_humidity_2m"])
+            prediction = call_prediction_api(station_name, horizon, observed_at, weather)
+
+        if weather["wind_speed_10m"] < 6.07 and weather["relative_humidity_2m"] < 55.0:
+            st.markdown(
+                """
+                <div class="critical-alert">
+                CRITICAL AIR STAGNATION WARNING: Meteorological conditions match the historical 99th percentile
+                extreme-pollution window (Winter Inversion/Wildfire context). Expect rapid ground-level PM2.5 accumulation.
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        category, category_color = aqi_category(float(prediction["predicted_aqi"]))
+        metric_columns = st.columns(4)
+        metric_columns[0].metric("Predicted AQI", f"{prediction['predicted_aqi']:.2f}", category)
+        metric_columns[1].metric("Temperature", f"{weather['temperature_2m']:.1f} C")
+        metric_columns[2].metric("Humidity", f"{weather['relative_humidity_2m']:.0f}%")
+        metric_columns[3].metric("Wind", f"{weather['wind_speed_10m']:.2f} m/s")
+
+        interval = prediction["confidence_interval"]
+        st.caption(
+            f"{prediction['model_horizon']} | observed {observed_at.strftime('%Y-%m-%d %H:%M UTC')} | "
+            f"CI {interval['lower']:.2f}-{interval['upper']:.2f} AQI | VPD {vpd:.3f} kPa"
+        )
+        chart_data = timeline_frame(prediction, horizon)
+        render_timeline_chart(chart_data, category_color)
+
+except requests.exceptions.ConnectionError:
+    with right_panel:
+        st.error(f"FastAPI backend is not reachable at {API_BASE_URL}. Start it with: uvicorn app.main:app --reload")
+except Exception as exc:
+    with right_panel:
+        st.error(f"Dashboard update failed: {exc}")

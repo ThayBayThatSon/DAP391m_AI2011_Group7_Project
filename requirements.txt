@@ -1,5 +1,10 @@
 pandas
 numpy
+fastapi
+uvicorn[standard]
+streamlit
+apscheduler
+requests
 scikit-learn
 lightgbm
 catboost
