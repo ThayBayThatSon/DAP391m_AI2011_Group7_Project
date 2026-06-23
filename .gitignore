@@ -31,6 +31,10 @@ notebook/catboost_info/
 .idea/
 .vs/
 
+# Private submission/admin files
+AI_AuditLog*.xlsx
+DAP391m_*_Weekly_Report.xlsx
+
 # Temporary/output folders
 outputs/
 tmp/
