@@ -10,6 +10,7 @@ from typing import Iterable, Iterator
 
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 
@@ -57,6 +58,13 @@ AQI_CATEGORIES = (
     (300.0, AQICategory("Very Unhealthy", "#7e22ce")),
     (math.inf, AQICategory("Hazardous", "#7f1d1d")),
 )
+MODEL_COLORS = {
+    "LightGBM": "#2563eb",
+    "XGBoost": "#f97316",
+    "Linear Ridge": "#16a34a",
+    "CatBoost": "#7e22ce",
+    "Random Forest": "#8b5e3c",
+}
 
 
 def classify_aqi(value: float) -> AQICategory:
@@ -299,4 +307,112 @@ def load_validation_data(
             ),
             parse_dates=["time"],
         )
-    return predictions.merge(actual, on=["time", "station_id"], how="inner")
+    return actual.merge(
+        predictions,
+        on=["time", "station_id"],
+        how="left",
+    ).sort_values(["time", "model_name"], na_position="last")
+
+
+def _actual_history(aligned: pd.DataFrame) -> pd.DataFrame:
+    return (
+        aligned[["time", "station_id", "actual_aqi"]]
+        .dropna(subset=["actual_aqi"])
+        .drop_duplicates(["time", "station_id"])
+        .sort_values(["time", "station_id"])
+    )
+
+
+def build_alignment_figure(
+    aligned: pd.DataFrame,
+    selected_models: Iterable[str],
+) -> go.Figure:
+    actual = _actual_history(aligned).copy()
+    actual["category"] = actual["actual_aqi"].map(
+        lambda value: classify_aqi(value).name
+    )
+
+    figure = go.Figure()
+    figure.add_trace(
+        go.Scatter(
+            x=actual["time"],
+            y=actual["actual_aqi"],
+            mode="lines",
+            name="Actual AQI",
+            customdata=actual[["category"]],
+            line={"color": "black", "width": 3, "dash": "dash"},
+            hovertemplate=(
+                "Actual AQI: %{y:.2f}<br>"
+                "Category: %{customdata[0]}<extra></extra>"
+            ),
+        )
+    )
+
+    category_labels = {
+        "Good": "Good (0-50)",
+        "Moderate": "Moderate (51-100)",
+        "Unhealthy for Sensitive Groups": (
+            "Unhealthy for Sensitive Groups (101-150)"
+        ),
+        "Unhealthy": "Unhealthy (151-200)",
+        "Very Unhealthy": "Very Unhealthy (201-300)",
+        "Hazardous": "Hazardous (301+)",
+    }
+    for _, category in AQI_CATEGORIES:
+        category_mask = actual["category"].eq(category.name)
+        if not category_mask.any():
+            continue
+        figure.add_trace(
+            go.Scatter(
+                x=actual["time"],
+                y=actual["actual_aqi"].where(category_mask, np.nan),
+                mode="lines+markers",
+                name=category_labels[category.name],
+                legendgroup="aqi-category",
+                line={"color": category.color, "width": 4},
+                marker={"color": category.color, "size": 7},
+                hoverinfo="skip",
+                connectgaps=False,
+            )
+        )
+
+    for model_name in tuple(selected_models):
+        if model_name not in MODEL_COLORS:
+            raise ValueError(f"Unsupported model: {model_name}")
+        model_rows = aligned[aligned["model_name"].eq(model_name)].sort_values(
+            "time"
+        )
+        if model_rows.empty:
+            continue
+        figure.add_trace(
+            go.Scatter(
+                x=model_rows["time"],
+                y=model_rows["predicted_aqi"],
+                mode="lines",
+                name=model_name,
+                line={"color": MODEL_COLORS[model_name], "width": 2},
+                hovertemplate=f"{model_name}: %{{y:.2f}}<extra></extra>",
+            )
+        )
+
+    figure.update_layout(
+        hovermode="x unified",
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        height=460,
+        margin={"l": 55, "r": 25, "t": 35, "b": 55},
+        legend={"orientation": "h", "y": 1.16},
+        xaxis_title="Timestamp",
+        yaxis_title="AQI",
+    )
+    figure.update_xaxes(
+        showline=True,
+        linecolor="#cbd5e1",
+        gridcolor="whitesmoke",
+    )
+    figure.update_yaxes(
+        showline=True,
+        linecolor="#cbd5e1",
+        gridcolor="whitesmoke",
+    )
+    return figure

@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from app.diagnostics import (
+    build_alignment_figure,
     calculate_model_metrics,
     classify_aqi,
     resolve_historical_window,
@@ -78,6 +79,57 @@ class DiagnosticsMathTest(unittest.TestCase):
         )
         metrics = calculate_model_metrics(frame).iloc[0]
         self.assertTrue(np.isnan(metrics["relative_accuracy"]))
+
+
+class DiagnosticsFigureTest(unittest.TestCase):
+    def setUp(self):
+        self.frame = pd.DataFrame(
+            {
+                "time": pd.to_datetime(
+                    [
+                        "2025-11-01 00:00:00",
+                        "2025-11-01 01:00:00",
+                        "2025-11-01 00:00:00",
+                        "2025-11-01 01:00:00",
+                    ]
+                ),
+                "station_id": ["FRES_OPENMETEO"] * 4,
+                "model_name": [
+                    "LightGBM",
+                    "LightGBM",
+                    "Linear Ridge",
+                    "Linear Ridge",
+                ],
+                "actual_aqi": [45.0, 155.0, 45.0, 155.0],
+                "predicted_aqi": [47.0, 150.0, 50.0, 145.0],
+            }
+        )
+
+    def test_actual_baseline_is_black_dashed_and_always_visible(self):
+        figure = build_alignment_figure(self.frame, [])
+        actual = next(trace for trace in figure.data if trace.name == "Actual AQI")
+        self.assertEqual(actual.line.color, "black")
+        self.assertEqual(actual.line.width, 3)
+        self.assertEqual(actual.line.dash, "dash")
+        self.assertFalse(any(trace.name == "LightGBM" for trace in figure.data))
+
+    def test_only_selected_model_curves_are_added(self):
+        figure = build_alignment_figure(self.frame, ["LightGBM"])
+        names = [trace.name for trace in figure.data]
+        self.assertIn("Actual AQI", names)
+        self.assertIn("LightGBM", names)
+        self.assertNotIn("Linear Ridge", names)
+        self.assertEqual(figure.layout.hovermode, "x unified")
+
+    def test_actual_history_contains_category_coloring(self):
+        figure = build_alignment_figure(self.frame, ["LightGBM"])
+        category_names = {
+            trace.name
+            for trace in figure.data
+            if trace.legendgroup == "aqi-category"
+        }
+        self.assertIn("Good (0-50)", category_names)
+        self.assertIn("Unhealthy (151-200)", category_names)
 
 
 if __name__ == "__main__":

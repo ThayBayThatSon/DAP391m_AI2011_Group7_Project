@@ -114,6 +114,38 @@ class PredictionSyncTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "station_id"):
             sync_prediction_csv(self.csv_path, self.db_path)
 
+    def test_actual_history_is_preserved_when_predictions_have_gaps(self):
+        with closing(sqlite3.connect(self.db_path)) as connection:
+            connection.execute(
+                "INSERT INTO meteorology_history VALUES (?, ?, ?, ?)",
+                (
+                    "2025-11-01 02:00:00",
+                    "FRES_OPENMETEO",
+                    "Fresno - Open-Meteo",
+                    90.0,
+                ),
+            )
+            connection.commit()
+        initialize_prediction_table(self.db_path)
+        sync_prediction_csv(self.csv_path, self.db_path)
+
+        aligned = load_validation_data(
+            city_name="Fresno",
+            scenario="Short-term Nowcasting (1h)",
+            start_at=pd.Timestamp("2025-11-01 00:00:00"),
+            end_at=pd.Timestamp("2025-11-01 23:59:59"),
+            model_names=["LightGBM"],
+            db_path=self.db_path,
+        )
+
+        actual = (
+            aligned[["time", "actual_aqi"]]
+            .drop_duplicates("time")
+            .sort_values("time")
+        )
+        self.assertEqual(actual["actual_aqi"].tolist(), [50.0, 75.0, 90.0])
+        self.assertEqual(aligned["predicted_aqi"].notna().sum(), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
