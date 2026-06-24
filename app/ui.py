@@ -371,7 +371,7 @@ def render_diagnostics_tab() -> None:
 
     st.subheader("Historical AQI and Forecast Alignment")
     st.caption(
-        "Actual AQI is always visible and colored by US AQI health category. "
+        "Actual AQI is a thick solid line colored by US AQI health category. "
         "Hover over a timestamp to compare every active model."
     )
     st.plotly_chart(

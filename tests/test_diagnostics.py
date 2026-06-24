@@ -105,12 +105,27 @@ class DiagnosticsFigureTest(unittest.TestCase):
             }
         )
 
-    def test_actual_baseline_is_black_dashed_and_always_visible(self):
+    def test_actual_aqi_is_a_thick_solid_category_colored_path(self):
         figure = build_alignment_figure(self.frame, [])
         actual = next(trace for trace in figure.data if trace.name == "Actual AQI")
-        self.assertEqual(actual.line.color, "black")
-        self.assertEqual(actual.line.width, 3)
-        self.assertEqual(actual.line.dash, "dash")
+        self.assertEqual(actual.mode, "markers")
+        self.assertEqual(actual.marker.color, "rgba(0,0,0,0)")
+        category_traces = [
+            trace
+            for trace in figure.data
+            if trace.legendgroup == "aqi-category"
+        ]
+        self.assertTrue(category_traces)
+        self.assertTrue(all(trace.mode == "lines" for trace in category_traces))
+        self.assertTrue(all(trace.line.width == 4 for trace in category_traces))
+        self.assertTrue(all(trace.line.dash is None for trace in category_traces))
+        self.assertFalse(
+            any(
+                trace.line.dash == "dash"
+                for trace in figure.data
+                if getattr(trace, "line", None) is not None
+            )
+        )
         self.assertFalse(any(trace.name == "LightGBM" for trace in figure.data))
 
     def test_only_selected_model_curves_are_added(self):
@@ -131,9 +146,9 @@ class DiagnosticsFigureTest(unittest.TestCase):
         category_names = {trace.name for trace in category_traces}
         self.assertIn("Good (0-50)", category_names)
         self.assertIn("Unhealthy (151-200)", category_names)
-        self.assertTrue(all(trace.mode == "markers" for trace in category_traces))
+        self.assertTrue(all(trace.mode == "lines" for trace in category_traces))
         self.assertTrue(all(trace.showlegend is False for trace in category_traces))
-        self.assertTrue(all(trace.marker.size == 3 for trace in category_traces))
+        self.assertTrue(all(trace.line.width == 4 for trace in category_traces))
         self.assertGreaterEqual(len(figure.layout.shapes), 6)
 
     def test_white_plot_uses_dark_text_in_any_streamlit_theme(self):

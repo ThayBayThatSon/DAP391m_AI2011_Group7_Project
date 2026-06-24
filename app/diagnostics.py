@@ -323,6 +323,59 @@ def _actual_history(aligned: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def _colored_actual_segments(
+    actual: pd.DataFrame,
+) -> dict[str, dict[str, list[object]]]:
+    segments = {
+        category.name: {"x": [], "y": []}
+        for _, category in AQI_CATEGORIES
+    }
+    thresholds = (50.0, 100.0, 150.0, 200.0, 300.0)
+
+    for _, station_rows in actual.groupby("station_id", sort=False):
+        ordered = station_rows.sort_values("time").reset_index(drop=True)
+        for index in range(len(ordered) - 1):
+            start = ordered.iloc[index]
+            end = ordered.iloc[index + 1]
+            start_time = pd.Timestamp(start["time"])
+            end_time = pd.Timestamp(end["time"])
+            start_aqi = float(start["actual_aqi"])
+            end_aqi = float(end["actual_aqi"])
+
+            fractions = [0.0, 1.0]
+            if end_aqi != start_aqi:
+                lower, upper = sorted((start_aqi, end_aqi))
+                for threshold in thresholds:
+                    if lower < threshold < upper:
+                        fractions.append(
+                            (threshold - start_aqi) / (end_aqi - start_aqi)
+                        )
+            fractions = sorted(fractions)
+
+            for left, right in zip(fractions, fractions[1:]):
+                midpoint = (left + right) / 2.0
+                category = classify_aqi(
+                    start_aqi + (end_aqi - start_aqi) * midpoint
+                )
+                x_values = segments[category.name]["x"]
+                y_values = segments[category.name]["y"]
+                x_values.extend(
+                    [
+                        start_time + (end_time - start_time) * left,
+                        start_time + (end_time - start_time) * right,
+                        None,
+                    ]
+                )
+                y_values.extend(
+                    [
+                        start_aqi + (end_aqi - start_aqi) * left,
+                        start_aqi + (end_aqi - start_aqi) * right,
+                        None,
+                    ]
+                )
+    return segments
+
+
 def build_alignment_figure(
     aligned: pd.DataFrame,
     selected_models: Iterable[str],
@@ -337,10 +390,11 @@ def build_alignment_figure(
         go.Scatter(
             x=actual["time"],
             y=actual["actual_aqi"],
-            mode="lines",
+            mode="markers",
             name="Actual AQI",
+            showlegend=False,
             customdata=actual[["category"]],
-            line={"color": "black", "width": 3, "dash": "dash"},
+            marker={"color": "rgba(0,0,0,0)", "size": 10},
             hovertemplate=(
                 "Actual AQI: %{y:.2f}<br>"
                 "Category: %{customdata[0]}<extra></extra>"
@@ -376,21 +430,22 @@ def build_alignment_figure(
         "Very Unhealthy": "Very Unhealthy (201-300)",
         "Hazardous": "Hazardous (301+)",
     }
+    colored_segments = _colored_actual_segments(actual)
     for _, category in AQI_CATEGORIES:
-        category_mask = actual["category"].eq(category.name)
-        if not category_mask.any():
+        segment = colored_segments[category.name]
+        if not segment["x"]:
             continue
         figure.add_trace(
             go.Scatter(
-                x=actual["time"],
-                y=actual["actual_aqi"].where(category_mask, np.nan),
-                mode="markers",
+                x=segment["x"],
+                y=segment["y"],
+                mode="lines",
                 name=category_labels[category.name],
                 legendgroup="aqi-category",
                 showlegend=False,
-                marker={"color": category.color, "size": 3},
-                opacity=0.78,
+                line={"color": category.color, "width": 4},
                 hoverinfo="skip",
+                connectgaps=False,
             )
         )
 
