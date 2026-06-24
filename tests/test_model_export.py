@@ -106,6 +106,73 @@ class ModelExportTest(unittest.TestCase):
         self.assertEqual(report["city_name"].tolist(), ["Fresno", "San Jose"])
         self.assertEqual(report["Model"].tolist(), ["LightGBM", "LightGBM"])
 
+    def test_all_model_artifact_paths_exist_for_each_horizon(self):
+        training = load_training_module()
+        expected_files = {
+            "LightGBM": "lightgbm.txt",
+            "XGBoost": "xgboost.json",
+            "CatBoost": "catboost.cbm",
+            "Random Forest": "random_forest.joblib",
+            "Linear Ridge": "linear_ridge.joblib",
+        }
+
+        for configuration in training.CONFIGURATIONS:
+            paths = training.model_artifact_paths(configuration)
+            self.assertEqual(
+                {name: path.name for name, path in paths.items()},
+                expected_files,
+            )
+            self.assertEqual(
+                paths["LightGBM"].parent.name,
+                training.ARTIFACT_DIR_NAMES[configuration],
+            )
+
+    def test_metadata_payload_contains_preprocessing_and_metrics(self):
+        training = load_training_module()
+        payload = training.build_artifact_metadata(
+            configuration="Short-term Autoregressive (Lag 1-3h)",
+            feature_metadata={
+                "general": {
+                    "numeric_features": ["temperature_2m"],
+                    "scaler_mean": [10.0],
+                    "scaler_scale": [2.0],
+                    "one_hot_columns": ["station_id_FRES_OPENMETEO"],
+                    "feature_order": [
+                        "temperature_2m",
+                        "station_id_FRES_OPENMETEO",
+                    ],
+                },
+                "catboost": {
+                    "feature_order": ["temperature_2m", "source", "station_id"],
+                    "categorical_features": ["source", "station_id"],
+                },
+                "lightgbm": {
+                    "feature_order": [
+                        "temperature_2m",
+                        "station_id_FRES_OPENMETEO",
+                    ],
+                },
+            },
+            leaderboard=pd.DataFrame(
+                [
+                    {
+                        "Model": "LightGBM",
+                        "N": 100,
+                        "MAE": 6.0,
+                        "RMSE": 9.0,
+                        "R2_Score": 0.87,
+                    }
+                ]
+            ),
+        )
+
+        self.assertEqual(payload["horizon_hours"], 1)
+        self.assertEqual(
+            payload["preprocessing"]["general"]["scaler_mean"],
+            [10.0],
+        )
+        self.assertEqual(payload["metrics"]["LightGBM"]["mae"], 6.0)
+
 
 if __name__ == "__main__":
     unittest.main()

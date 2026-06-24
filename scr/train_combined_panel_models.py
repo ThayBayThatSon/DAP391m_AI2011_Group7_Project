@@ -1,12 +1,18 @@
 import argparse
+import json
 import os
+import sys
 import time
 import warnings
+from datetime import datetime, timezone
+from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
 
 os.environ["MPLBACKEND"] = "agg"
 
 import numpy as np
 import pandas as pd
+import joblib
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
@@ -43,6 +49,17 @@ PREDICTION_PATH = os.path.join(OUTPUT_DIR, "california_aqi_model_predictions.csv
 MODEL_OUTPUT_PATHS = {
     "Short-term Autoregressive (Lag 1-3h)": os.path.join(MODEL_DIR, "lightgbm_nowcast.txt"),
     "Long-term Forecasting (Lag 24h)": os.path.join(MODEL_DIR, "lightgbm_forecast24h.txt"),
+}
+ARTIFACT_DIR_NAMES = {
+    "Short-term Autoregressive (Lag 1-3h)": "nowcast_1h",
+    "Long-term Forecasting (Lag 24h)": "forecast_24h",
+}
+ARTIFACT_FILENAMES = {
+    "LightGBM": "lightgbm.txt",
+    "XGBoost": "xgboost.json",
+    "CatBoost": "catboost.cbm",
+    "Random Forest": "random_forest.joblib",
+    "Linear Ridge": "linear_ridge.joblib",
 }
 
 TARGET = "target_aqi"
@@ -206,7 +223,16 @@ def prepare_model_matrices(
     X_train: pd.DataFrame,
     X_val: pd.DataFrame,
     X_test: pd.DataFrame,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str]]:
+) -> tuple[
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    list[str],
+    dict,
+]:
     numeric_features = [c for c in X_train.columns if c not in CAT_FEATURES]
 
     scaler = StandardScaler()
@@ -243,6 +269,20 @@ def prepare_model_matrices(
     X_val_catboost = pd.concat([val_numeric, val_cat], axis=1)
     X_test_catboost = pd.concat([test_numeric, test_cat], axis=1)
 
+    preprocessing_metadata = {
+        "general": {
+            "numeric_features": numeric_features,
+            "scaler_mean": scaler.mean_.astype(float).tolist(),
+            "scaler_scale": scaler.scale_.astype(float).tolist(),
+            "one_hot_columns": ohe_columns.astype(str).tolist(),
+            "feature_order": X_train_general.columns.astype(str).tolist(),
+        },
+        "catboost": {
+            "feature_order": X_train_catboost.columns.astype(str).tolist(),
+            "categorical_features": CAT_FEATURES.copy(),
+        },
+    }
+
     return (
         X_train_general,
         X_val_general,
@@ -251,6 +291,7 @@ def prepare_model_matrices(
         X_val_catboost,
         X_test_catboost,
         CAT_FEATURES.copy(),
+        preprocessing_metadata,
     )
 
 
@@ -290,6 +331,103 @@ def save_lightgbm_model(model: lgb.LGBMRegressor, configuration: str) -> str:
     else:
         model.booster_.save_model(output_path)
     print(f"Saved LightGBM model: {output_path}", flush=True)
+    return output_path
+
+
+def model_artifact_paths(configuration: str) -> dict[str, Path]:
+    directory = Path(MODEL_DIR) / ARTIFACT_DIR_NAMES[configuration]
+    return {
+        model_name: directory / filename
+        for model_name, filename in ARTIFACT_FILENAMES.items()
+    }
+
+
+def save_model_artifact(model, model_name: str, configuration: str) -> Path:
+    output_path = model_artifact_paths(configuration)[model_name]
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if model_name == "LightGBM":
+        best_iteration = getattr(model, "best_iteration_", None)
+        num_iteration = best_iteration if best_iteration else -1
+        model.booster_.save_model(str(output_path), num_iteration=num_iteration)
+        compatibility_path = Path(MODEL_OUTPUT_PATHS[configuration])
+        compatibility_path.parent.mkdir(parents=True, exist_ok=True)
+        model.booster_.save_model(
+            str(compatibility_path),
+            num_iteration=num_iteration,
+        )
+    elif model_name == "XGBoost":
+        model.save_model(str(output_path))
+    elif model_name == "CatBoost":
+        model.save_model(str(output_path), format="cbm")
+    else:
+        joblib.dump(model, output_path)
+    return output_path
+
+
+def _package_version(package_name: str) -> str:
+    try:
+        return version(package_name)
+    except PackageNotFoundError:
+        return "not-installed"
+
+
+def build_artifact_metadata(
+    configuration: str,
+    feature_metadata: dict,
+    leaderboard: pd.DataFrame,
+) -> dict:
+    metrics = {
+        row.Model: {
+            "mae": float(row.MAE),
+            "rmse": float(row.RMSE),
+            "r2": float(row.R2_Score),
+            "n": int(row.N),
+        }
+        for row in leaderboard.itertuples(index=False)
+    }
+    return {
+        "configuration": configuration,
+        "horizon_hours": CONFIGURATIONS[configuration]["horizon"],
+        "train_years": TRAIN_YEARS,
+        "validation_years": VALIDATION_YEARS,
+        "test_years": TEST_YEARS,
+        "trained_at_utc": datetime.now(timezone.utc).isoformat(),
+        "preprocessing": feature_metadata,
+        "metrics": metrics,
+        "library_versions": {
+            "python": sys.version.split()[0],
+            "lightgbm": _package_version("lightgbm"),
+            "xgboost": _package_version("xgboost"),
+            "catboost": _package_version("catboost"),
+            "scikit-learn": _package_version("scikit-learn"),
+            "joblib": _package_version("joblib"),
+        },
+    }
+
+
+def save_artifact_metadata(
+    configuration: str,
+    feature_metadata: dict,
+    leaderboard: pd.DataFrame,
+) -> Path:
+    output_path = (
+        Path(MODEL_DIR)
+        / ARTIFACT_DIR_NAMES[configuration]
+        / "metadata.json"
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(
+            build_artifact_metadata(
+                configuration,
+                feature_metadata,
+                leaderboard,
+            ),
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     return output_path
 
 
@@ -535,8 +673,12 @@ def run_configuration(configuration: str, lightgbm_only: bool = False):
         X_val_catboost,
         X_test_catboost,
         cat_features,
+        preprocessing_metadata,
     ) = prepare_model_matrices(X_train, X_val, X_test)
     X_train_lightgbm, X_val_lightgbm, X_test_lightgbm = prepare_lightgbm_production_matrices(X_train, X_val, X_test)
+    preprocessing_metadata["lightgbm"] = {
+        "feature_order": X_train_lightgbm.columns.astype(str).tolist(),
+    }
     print(f"General model feature count: {X_train_general.shape[1]}", flush=True)
     print(f"Production LightGBM feature count: {X_train_lightgbm.shape[1]}", flush=True)
     print(f"CatBoost categorical features: {cat_features}", flush=True)
@@ -554,7 +696,6 @@ def run_configuration(configuration: str, lightgbm_only: bool = False):
                 eval_set=[(X_val_lightgbm, y_val)],
                 callbacks=[lgb.early_stopping(EARLY_STOPPING_ROUNDS, verbose=False)],
             )
-            save_lightgbm_model(model, configuration)
         elif CatBoostRegressor is not None and isinstance(model, CatBoostRegressor):
             model.fit(
                 X_train_catboost,
@@ -574,6 +715,9 @@ def run_configuration(configuration: str, lightgbm_only: bool = False):
         else:
             model.fit(X_train_general, y_train)
 
+        artifact_path = save_model_artifact(model, name, configuration)
+        print(f"Saved {name} model: {artifact_path}", flush=True)
+
         if CatBoostRegressor is not None and isinstance(model, CatBoostRegressor):
             test_matrix = X_test_catboost
         elif isinstance(model, lgb.LGBMRegressor):
@@ -592,6 +736,12 @@ def run_configuration(configuration: str, lightgbm_only: bool = False):
         )
 
     leaderboard = pd.DataFrame(leaderboard_rows).sort_values("R2_Score", ascending=False).reset_index(drop=True)
+    metadata_path = save_artifact_metadata(
+        configuration,
+        preprocessing_metadata,
+        leaderboard,
+    )
+    print(f"Saved model metadata: {metadata_path}", flush=True)
 
     scenario_rows = []
     for model_name, (model_y_true, pred) in predictions.items():
