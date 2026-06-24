@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import pandas as pd
 import requests
 
 
@@ -38,12 +39,26 @@ class FakePanel:
     def metric(self, *args, **kwargs):
         return None
 
+    def selectbox(self, label, options, **kwargs):
+        return options[0]
+
+    def radio(self, label, options, **kwargs):
+        return options[0]
+
+    def warning(self, *args, **kwargs):
+        return None
+
+    def info(self, *args, **kwargs):
+        return None
+
 
 class FakeStreamlit(types.ModuleType):
     def __init__(self):
         super().__init__("streamlit")
         self.errors: list[str] = []
+        self.warnings: list[str] = []
         self.slider_kwargs: dict = {}
+        self.tab_labels: list[str] = []
 
     def cache_data(self, *args, **kwargs):
         def decorator(func):
@@ -68,8 +83,27 @@ class FakeStreamlit(types.ModuleType):
         count = len(spec) if isinstance(spec, list) else int(spec)
         return [FakePanel() for _ in range(count)]
 
+    def tabs(self, labels):
+        self.tab_labels = list(labels)
+        return [FakePanel() for _ in labels]
+
     def selectbox(self, *args, **kwargs):
         return "Fresno"
+
+    def radio(self, label, options, **kwargs):
+        return options[0]
+
+    def date_input(self, *args, **kwargs):
+        return kwargs["value"]
+
+    def multiselect(self, *args, **kwargs):
+        return kwargs.get("default", [])
+
+    def segmented_control(self, label, options, **kwargs):
+        return kwargs.get("default", options[0])
+
+    def expander(self, *args, **kwargs):
+        return FakePanel()
 
     def slider(self, *args, **kwargs):
         self.slider_kwargs = kwargs
@@ -83,6 +117,21 @@ class FakeStreamlit(types.ModuleType):
 
     def altair_chart(self, *args, **kwargs):
         return None
+
+    def plotly_chart(self, *args, **kwargs):
+        return None
+
+    def dataframe(self, *args, **kwargs):
+        return None
+
+    def subheader(self, *args, **kwargs):
+        return None
+
+    def info(self, *args, **kwargs):
+        return None
+
+    def warning(self, message):
+        self.warnings.append(str(message))
 
     def error(self, message):
         self.errors.append(str(message))
@@ -136,6 +185,44 @@ class DashboardPredictionModeTest(unittest.TestCase):
         fake_main.predict = fake_predict
         fake_main.startup = fake_startup
 
+        fake_diagnostics = types.ModuleType("app.diagnostics")
+        fake_diagnostics.DEFAULT_DB_PATH = PROJECT_ROOT / "test-aqi-data.db"
+        fake_diagnostics.MODEL_NAMES = (
+            "LightGBM",
+            "XGBoost",
+            "CatBoost",
+            "Random Forest",
+            "Linear Ridge",
+        )
+        fake_diagnostics.QUICK_RANGES = (
+            "24 Hours",
+            "7 Days",
+            "30 Days",
+            "Full Custom Range",
+        )
+        fake_diagnostics.SCENARIOS = {
+            "Short-term Nowcasting (1h)": {},
+            "Long-term Forecasting (24h)": {},
+        }
+        fake_diagnostics.initialize_prediction_table = lambda db_path: None
+        fake_diagnostics.resolve_historical_window = (
+            lambda start_date, end_date, quick_range: (
+                pd.Timestamp(start_date),
+                pd.Timestamp(end_date)
+                + pd.Timedelta(days=1)
+                - pd.Timedelta(seconds=1),
+            )
+        )
+        fake_diagnostics.load_validation_data = (
+            lambda *args, **kwargs: pd.DataFrame()
+        )
+        fake_diagnostics.calculate_model_metrics = (
+            lambda frame: pd.DataFrame()
+        )
+        fake_diagnostics.build_alignment_figure = (
+            lambda frame, models: object()
+        )
+
         def fake_get(*args, **kwargs):
             return FakeResponse(
                 200,
@@ -158,7 +245,14 @@ class DashboardPredictionModeTest(unittest.TestCase):
         assert spec.loader is not None
 
         with patch.dict(os.environ, {"HOME": str(PROJECT_ROOT), "USERPROFILE": str(PROJECT_ROOT)}, clear=True):
-            with patch.dict(sys.modules, {"streamlit": fake_streamlit, "app.main": fake_main}):
+            with patch.dict(
+                sys.modules,
+                {
+                    "streamlit": fake_streamlit,
+                    "app.main": fake_main,
+                    "app.diagnostics": fake_diagnostics,
+                },
+            ):
                 with patch.object(requests, "get", side_effect=fake_get):
                     with patch.object(requests, "Session", side_effect=FakeSession):
                         spec.loader.exec_module(module)
@@ -167,6 +261,10 @@ class DashboardPredictionModeTest(unittest.TestCase):
         self.assertFalse(module.PREDICTION_API_SESSION.trust_env)
         self.assertEqual(module.PREDICTION_ENGINE.startup_called, 1)
         self.assertEqual(fake_streamlit.slider_kwargs["value"], 24)
+        self.assertEqual(
+            fake_streamlit.tab_labels,
+            ["Live Forecast", "📊 Live Validation & Model Diagnostics"],
+        )
         self.assertEqual(fake_streamlit.errors, [])
 
         post_calls = {"count": 0}
