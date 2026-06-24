@@ -31,6 +31,7 @@ from app.diagnostics import (
     load_validation_data,
     resolve_historical_window,
 )
+from app.alerts import evaluate_air_stagnation_alert
 
 API_BASE_URL = os.getenv("AQI_API_URL", "").strip()
 USE_REMOTE_API = bool(API_BASE_URL)
@@ -226,14 +227,18 @@ def render_live_forecast_content(
     horizon: int,
     vpd: float,
 ) -> None:
-    if weather["wind_speed_10m"] < 6.07 and weather["relative_humidity_2m"] < 55.0:
+    alert = evaluate_air_stagnation_alert(
+        wind_speed_mps=weather["wind_speed_10m"],
+        relative_humidity_pct=weather["relative_humidity_2m"],
+        rain_mm=weather["rain"],
+        predicted_aqi=float(prediction["predicted_aqi"]),
+    )
+    if alert is not None:
         st.markdown(
-            """
-            <div class="critical-alert">
-            CRITICAL AIR STAGNATION WARNING: Meteorological conditions match the
-            historical 99th percentile extreme-pollution window
-            (Winter Inversion/Wildfire context). Expect rapid ground-level
-            PM2.5 accumulation.
+            f"""
+            <div class="air-alert air-alert-{alert.level}">
+            <strong>{alert.title}</strong><br>
+            {alert.message}
             </div>
             """,
             unsafe_allow_html=True,
@@ -455,15 +460,27 @@ st.markdown(
         padding: 0.8rem 0.9rem;
         background: #ffffff;
     }
-    .critical-alert {
-        border-left: 8px solid #b91c1c;
-        background: #fff1f2;
-        color: #7f1d1d;
+    .air-alert {
+        border-left: 6px solid;
         padding: 1rem 1.1rem;
         border-radius: 8px;
-        font-weight: 740;
         line-height: 1.45;
         margin: 0.5rem 0 1rem 0;
+    }
+    .air-alert-advisory {
+        border-color: #0ea5e9;
+        background: #f0f9ff;
+        color: #0c4a6e;
+    }
+    .air-alert-warning {
+        border-color: #f59e0b;
+        background: #fffbeb;
+        color: #78350f;
+    }
+    .air-alert-critical {
+        border-color: #dc2626;
+        background: #fff1f2;
+        color: #7f1d1d;
     }
     </style>
     """,
