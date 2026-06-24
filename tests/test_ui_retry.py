@@ -60,6 +60,7 @@ class FakeStreamlit(types.ModuleType):
         self.warnings: list[str] = []
         self.slider_kwargs: dict = {}
         self.segmented_control_kwargs: dict = {}
+        self.segmented_control_calls: list[dict] = []
         self.tab_labels: list[str] = []
 
     def cache_data(self, *args, **kwargs):
@@ -103,6 +104,9 @@ class FakeStreamlit(types.ModuleType):
 
     def segmented_control(self, label, options, **kwargs):
         self.segmented_control_kwargs = kwargs
+        self.segmented_control_calls.append(
+            {"label": label, "options": list(options), "kwargs": kwargs}
+        )
         return kwargs.get("default", options[0])
 
     def expander(self, *args, **kwargs):
@@ -278,7 +282,13 @@ class DashboardPredictionModeTest(unittest.TestCase):
         self.assertFalse(module.USE_REMOTE_API)
         self.assertFalse(module.PREDICTION_API_SESSION.trust_env)
         self.assertEqual(module.PREDICTION_ENGINE.startup_called, 1)
-        self.assertEqual(fake_streamlit.slider_kwargs["value"], 24)
+        forecast_horizon_control = next(
+            call
+            for call in fake_streamlit.segmented_control_calls
+            if call["label"] == "Forecast Horizon"
+        )
+        self.assertEqual(forecast_horizon_control["options"], [1, 24])
+        self.assertEqual(forecast_horizon_control["kwargs"]["default"], 24)
         self.assertEqual(
             fake_streamlit.tab_labels,
             ["Live Forecast", "📊 Live Validation & Model Diagnostics"],

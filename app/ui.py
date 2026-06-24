@@ -485,13 +485,12 @@ with live_tab:
 
     with left_panel:
         station_name = st.selectbox("Station", list(STATIONS.keys()), index=0)
-        horizon = st.slider(
+        horizon = st.segmented_control(
             "Forecast Horizon",
-            min_value=1,
-            max_value=24,
-            value=24,
-            step=23,
-            format="%d h",
+            options=[1, 24],
+            default=24,
+            format_func=lambda value: "1 Hour" if value == 1 else "24 Hours",
+            key="live_forecast_horizon",
         )
         station_frame = pd.DataFrame(
             [
