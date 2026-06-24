@@ -131,6 +131,13 @@ class DiagnosticsFigureTest(unittest.TestCase):
         self.assertIn("Good (0-50)", category_names)
         self.assertIn("Unhealthy (151-200)", category_names)
 
+    def test_white_plot_uses_dark_text_in_any_streamlit_theme(self):
+        figure = build_alignment_figure(self.frame, ["LightGBM"])
+        self.assertEqual(figure.layout.font.color, "#111827")
+        self.assertEqual(figure.layout.legend.bgcolor, "rgba(255,255,255,0.92)")
+        self.assertEqual(figure.layout.xaxis.tickfont.color, "#111827")
+        self.assertEqual(figure.layout.yaxis.tickfont.color, "#111827")
+
 
 if __name__ == "__main__":
     unittest.main()

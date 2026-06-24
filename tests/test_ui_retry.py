@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import importlib.util
 import os
 import sys
@@ -152,6 +153,21 @@ class FakeSession:
 
 
 class DashboardPredictionModeTest(unittest.TestCase):
+    def test_ui_bootstraps_project_root_before_app_imports(self):
+        tree = ast.parse(UI_PATH.read_text(encoding="utf-8"))
+        app_import_index = next(
+            index
+            for index, node in enumerate(tree.body)
+            if isinstance(node, ast.ImportFrom) and node.module == "app.diagnostics"
+        )
+        bootstrap_index = next(
+            index
+            for index, node in enumerate(tree.body)
+            if isinstance(node, ast.If)
+            and "sys.path" in ast.unparse(node.test)
+        )
+        self.assertLess(bootstrap_index, app_import_index)
+
     def test_dashboard_defaults_to_local_prediction_and_http_retry_remains_available(self):
         fake_streamlit = FakeStreamlit()
 

@@ -3,14 +3,22 @@ from __future__ import annotations
 import math
 import os
 import sqlite3
+import sys
 import time
 from datetime import date, datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import altair as alt
 import pandas as pd
 import requests
 import streamlit as st
+
+
+APP_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = APP_DIR.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.diagnostics import (
     DEFAULT_DB_PATH,

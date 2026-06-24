@@ -399,9 +399,15 @@ def build_alignment_figure(
         hovermode="x unified",
         paper_bgcolor="white",
         plot_bgcolor="white",
+        font={"color": "#111827"},
         height=460,
         margin={"l": 55, "r": 25, "t": 35, "b": 55},
-        legend={"orientation": "h", "y": 1.16},
+        legend={
+            "orientation": "h",
+            "y": 1.16,
+            "bgcolor": "rgba(255,255,255,0.92)",
+            "font": {"color": "#111827"},
+        },
         xaxis_title="Timestamp",
         yaxis_title="AQI",
     )
@@ -409,10 +415,14 @@ def build_alignment_figure(
         showline=True,
         linecolor="#cbd5e1",
         gridcolor="whitesmoke",
+        tickfont={"color": "#111827"},
+        title_font={"color": "#111827"},
     )
     figure.update_yaxes(
         showline=True,
         linecolor="#cbd5e1",
         gridcolor="whitesmoke",
+        tickfont={"color": "#111827"},
+        title_font={"color": "#111827"},
     )
     return figure
