@@ -76,6 +76,36 @@ class ModelExportTest(unittest.TestCase):
 
         self.assertEqual(list(training.model_dictionary(lightgbm_only=True)), ["LightGBM"])
 
+    def test_prediction_report_preserves_station_identity_and_city(self):
+        training = load_training_module()
+        timestamps = pd.to_datetime(
+            ["2025-01-01 00:00:00", "2025-01-01 01:00:00"]
+        )
+        y_true = pd.Series([50.0, 75.0], index=timestamps)
+        predictions = {
+            "LightGBM": (
+                y_true,
+                pd.Series([48.0, 78.0], index=timestamps),
+            )
+        }
+
+        report = training.build_prediction_report(
+            "Short-term Autoregressive (Lag 1-3h)",
+            predictions,
+            pd.Series(["FRES_OPENMETEO", "SJ_OPENMETEO"]),
+            {
+                "FRES_OPENMETEO": "Fresno - Open-Meteo",
+                "SJ_OPENMETEO": "Downtown San Jose, California",
+            },
+        )
+
+        self.assertEqual(
+            report["station_id"].tolist(),
+            ["FRES_OPENMETEO", "SJ_OPENMETEO"],
+        )
+        self.assertEqual(report["city_name"].tolist(), ["Fresno", "San Jose"])
+        self.assertEqual(report["Model"].tolist(), ["LightGBM", "LightGBM"])
+
 
 if __name__ == "__main__":
     unittest.main()

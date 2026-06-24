@@ -68,6 +68,14 @@ CONFIGURATIONS = {
     },
 }
 
+CITY_BY_STATION_ID = {
+    "FRES": "Fresno",
+    "FRES_OPENMETEO": "Fresno",
+    "LA": "Los Angeles",
+    "LA_OPENMETEO": "Los Angeles",
+    "SJ_OPENMETEO": "San Jose",
+}
+
 
 def max_history_context_hours(configuration: str) -> int:
     config = CONFIGURATIONS[configuration]
@@ -379,6 +387,35 @@ def evaluate_scenarios(configuration: str, model_name: str, y_true: pd.Series, y
     return rows
 
 
+def build_prediction_report(
+    configuration: str,
+    predictions: dict[str, tuple[pd.Series, pd.Series]],
+    test_station_ids: pd.Series,
+    station_name_lookup: dict[str, str],
+) -> pd.DataFrame:
+    station_ids = test_station_ids.reset_index(drop=True)
+    rows = []
+    for model_name, (model_y_true, predicted) in predictions.items():
+        if len(station_ids) != len(model_y_true):
+            raise ValueError("Station identity count does not match prediction rows.")
+        frame = pd.DataFrame(
+            {
+                "Configuration": configuration,
+                "Model": model_name,
+                "time": model_y_true.index,
+                "station_id": station_ids.to_numpy(),
+                "Actual_AQI": model_y_true.to_numpy(),
+                "Predicted_AQI": predicted.to_numpy(),
+            }
+        )
+        frame["station_name"] = frame["station_id"].map(station_name_lookup)
+        frame["city_name"] = frame["station_id"].map(CITY_BY_STATION_ID)
+        if frame[["station_name", "city_name"]].isna().any().any():
+            raise ValueError("Prediction report contains an unmapped station.")
+        rows.append(frame)
+    return pd.concat(rows, ignore_index=True)
+
+
 def model_dictionary(lightgbm_only: bool = False):
     models = {
         "LightGBM": lgb.LGBMRegressor(
@@ -450,6 +487,12 @@ def run_configuration(configuration: str, lightgbm_only: bool = False):
 
     raw = pd.read_csv(DATA_PATH)
     engineered = add_features(raw, configuration=configuration)
+    station_name_lookup = (
+        engineered[["station_id", "station_name"]]
+        .drop_duplicates("station_id")
+        .set_index("station_id")["station_name"]
+        .to_dict()
+    )
     X, y, y_time = build_feature_matrix(engineered, configuration=configuration)
 
     station_ids = engineered.loc[X.index, "station_id"].reset_index(drop=True)
@@ -560,20 +603,12 @@ def run_configuration(configuration: str, lightgbm_only: bool = False):
     print("\nScenario Report", flush=True)
     print(scenario_report.sort_values(["Scenario", "R2_Score"], ascending=[True, False]).to_string(index=False), flush=True)
 
-    prediction_rows = []
-    for model_name, (model_y_true, pred) in predictions.items():
-        prediction_rows.append(
-            pd.DataFrame(
-                {
-                    "Configuration": configuration,
-                    "Model": model_name,
-                    "time": model_y_true.index,
-                    "Actual_AQI": model_y_true.to_numpy(),
-                    "Predicted_AQI": pred.to_numpy(),
-                }
-            )
-        )
-    prediction_report = pd.concat(prediction_rows, ignore_index=True)
+    prediction_report = build_prediction_report(
+        configuration,
+        predictions,
+        test_station_ids,
+        station_name_lookup,
+    )
 
     return leaderboard, scenario_report, prediction_report
 
