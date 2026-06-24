@@ -333,7 +333,7 @@ def render_diagnostics_tab() -> None:
         quick_range = st.segmented_control(
             "Quick Historical Range",
             QUICK_RANGES,
-            default="Full Custom Range",
+            default="30 Days",
             key="validation_quick_range",
         )
         selected_models = st.multiselect(
@@ -378,6 +378,11 @@ def render_diagnostics_tab() -> None:
         build_alignment_figure(aligned, selected_models),
         width="stretch",
         config={"displaylogo": False},
+    )
+    st.caption(
+        "US AQI zones: Good 0-50 | Moderate 51-100 | "
+        "Unhealthy for Sensitive Groups 101-150 | Unhealthy 151-200 | "
+        "Very Unhealthy 201-300 | Hazardous 301+"
     )
 
     st.subheader("Relative Prediction Accuracy")

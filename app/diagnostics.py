@@ -348,6 +348,24 @@ def build_alignment_figure(
         )
     )
 
+    band_bounds = (
+        (0, 50, "#16a34a"),
+        (50, 100, "#eab308"),
+        (100, 150, "#f97316"),
+        (150, 200, "#dc2626"),
+        (200, 300, "#7e22ce"),
+        (300, 500, "#7f1d1d"),
+    )
+    for lower, upper, color in band_bounds:
+        figure.add_hrect(
+            y0=lower,
+            y1=upper,
+            fillcolor=color,
+            opacity=0.035,
+            line_width=0,
+            layer="below",
+        )
+
     category_labels = {
         "Good": "Good (0-50)",
         "Moderate": "Moderate (51-100)",
@@ -366,16 +384,21 @@ def build_alignment_figure(
             go.Scatter(
                 x=actual["time"],
                 y=actual["actual_aqi"].where(category_mask, np.nan),
-                mode="lines+markers",
+                mode="markers",
                 name=category_labels[category.name],
                 legendgroup="aqi-category",
-                line={"color": category.color, "width": 4},
-                marker={"color": category.color, "size": 7},
+                showlegend=False,
+                marker={"color": category.color, "size": 3},
+                opacity=0.78,
                 hoverinfo="skip",
-                connectgaps=False,
             )
         )
 
+    visible_max = (
+        float(actual["actual_aqi"].max())
+        if not actual.empty
+        else 0.0
+    )
     for model_name in tuple(selected_models):
         if model_name not in MODEL_COLORS:
             raise ValueError(f"Unsupported model: {model_name}")
@@ -384,27 +407,36 @@ def build_alignment_figure(
         )
         if model_rows.empty:
             continue
+        visible_max = max(
+            visible_max,
+            float(model_rows["predicted_aqi"].dropna().max()),
+        )
         figure.add_trace(
             go.Scatter(
                 x=model_rows["time"],
                 y=model_rows["predicted_aqi"],
                 mode="lines",
                 name=model_name,
-                line={"color": MODEL_COLORS[model_name], "width": 2},
+                line={"color": MODEL_COLORS[model_name], "width": 1.5},
+                opacity=0.72,
                 hovertemplate=f"{model_name}: %{{y:.2f}}<extra></extra>",
             )
         )
 
+    y_axis_max = min(
+        500,
+        max(80, math.ceil((visible_max * 1.15) / 10.0) * 10),
+    )
     figure.update_layout(
         hovermode="x unified",
         paper_bgcolor="white",
         plot_bgcolor="white",
         font={"color": "#111827"},
-        height=460,
-        margin={"l": 55, "r": 25, "t": 35, "b": 55},
+        height=400,
+        margin={"l": 55, "r": 25, "t": 20, "b": 50},
         legend={
             "orientation": "h",
-            "y": 1.16,
+            "y": 1.08,
             "bgcolor": "rgba(255,255,255,0.92)",
             "font": {"color": "#111827"},
         },
@@ -424,5 +456,6 @@ def build_alignment_figure(
         gridcolor="whitesmoke",
         tickfont={"color": "#111827"},
         title_font={"color": "#111827"},
+        range=[0, y_axis_max],
     )
     return figure

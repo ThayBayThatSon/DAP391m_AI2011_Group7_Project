@@ -123,13 +123,18 @@ class DiagnosticsFigureTest(unittest.TestCase):
 
     def test_actual_history_contains_category_coloring(self):
         figure = build_alignment_figure(self.frame, ["LightGBM"])
-        category_names = {
-            trace.name
+        category_traces = [
+            trace
             for trace in figure.data
             if trace.legendgroup == "aqi-category"
-        }
+        ]
+        category_names = {trace.name for trace in category_traces}
         self.assertIn("Good (0-50)", category_names)
         self.assertIn("Unhealthy (151-200)", category_names)
+        self.assertTrue(all(trace.mode == "markers" for trace in category_traces))
+        self.assertTrue(all(trace.showlegend is False for trace in category_traces))
+        self.assertTrue(all(trace.marker.size == 3 for trace in category_traces))
+        self.assertGreaterEqual(len(figure.layout.shapes), 6)
 
     def test_white_plot_uses_dark_text_in_any_streamlit_theme(self):
         figure = build_alignment_figure(self.frame, ["LightGBM"])
@@ -137,6 +142,16 @@ class DiagnosticsFigureTest(unittest.TestCase):
         self.assertEqual(figure.layout.legend.bgcolor, "rgba(255,255,255,0.92)")
         self.assertEqual(figure.layout.xaxis.tickfont.color, "#111827")
         self.assertEqual(figure.layout.yaxis.tickfont.color, "#111827")
+
+    def test_prediction_curves_are_visually_deemphasized(self):
+        figure = build_alignment_figure(self.frame, ["LightGBM"])
+        prediction = next(
+            trace for trace in figure.data if trace.name == "LightGBM"
+        )
+        self.assertEqual(prediction.line.width, 1.5)
+        self.assertEqual(prediction.opacity, 0.72)
+        self.assertEqual(figure.layout.height, 400)
+        self.assertEqual(tuple(figure.layout.yaxis.range), (0, 180))
 
 
 if __name__ == "__main__":

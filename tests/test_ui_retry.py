@@ -59,6 +59,7 @@ class FakeStreamlit(types.ModuleType):
         self.errors: list[str] = []
         self.warnings: list[str] = []
         self.slider_kwargs: dict = {}
+        self.segmented_control_kwargs: dict = {}
         self.tab_labels: list[str] = []
 
     def cache_data(self, *args, **kwargs):
@@ -101,6 +102,7 @@ class FakeStreamlit(types.ModuleType):
         return kwargs.get("default", [])
 
     def segmented_control(self, label, options, **kwargs):
+        self.segmented_control_kwargs = kwargs
         return kwargs.get("default", options[0])
 
     def expander(self, *args, **kwargs):
@@ -280,6 +282,10 @@ class DashboardPredictionModeTest(unittest.TestCase):
         self.assertEqual(
             fake_streamlit.tab_labels,
             ["Live Forecast", "📊 Live Validation & Model Diagnostics"],
+        )
+        self.assertEqual(
+            fake_streamlit.segmented_control_kwargs["default"],
+            "30 Days",
         )
         self.assertEqual(fake_streamlit.errors, [])
 
