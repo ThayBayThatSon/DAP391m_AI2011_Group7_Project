@@ -177,7 +177,78 @@ streamlit run app/ui.py
 python app/data_collector.py
 ```
 
-## 8. Model Files
+## 8. Train and Package All Five Models
+
+Run the full benchmark training pipeline:
+
+```powershell
+.\.venv\Scripts\python.exe scr/train_combined_panel_models.py
+```
+
+This trains LightGBM, XGBoost, CatBoost, Random Forest, and Linear Ridge for
+both the 1-hour and 24-hour configurations. It writes ten model artifacts under:
+
+```text
+models/
+  nowcast_1h/
+    lightgbm.txt
+    xgboost.json
+    catboost.cbm
+    random_forest.joblib
+    linear_ridge.joblib
+    metadata.json
+  forecast_24h/
+    lightgbm.txt
+    xgboost.json
+    catboost.cbm
+    random_forest.joblib
+    linear_ridge.joblib
+    metadata.json
+```
+
+Each `metadata.json` contains feature order, preprocessing statistics, library
+versions, data split years, and test metrics.
+
+The FastAPI compatibility files remain at:
+
+```text
+models/lightgbm_nowcast.txt
+models/lightgbm_forecast24h.txt
+```
+
+## 9. Synchronize Historical Predictions
+
+After full training, import the station-aware 2025 backtest predictions:
+
+```powershell
+.\.venv\Scripts\python.exe scr/sync_model_predictions.py
+```
+
+The command creates or updates the SQLite `model_predictions` table. It is
+idempotent and safe to run repeatedly.
+
+## 10. Live Validation and Model Diagnostics
+
+Start Streamlit:
+
+```powershell
+.\.venv\Scripts\streamlit.exe run app/ui.py
+```
+
+Open the `Live Validation & Model Diagnostics` tab to:
+
+- Filter Fresno, Los Angeles, or San Jose.
+- Switch between 1-hour nowcasting and 24-hour forecasting.
+- Select 24-hour, 7-day, 30-day, or custom historical windows.
+- Add or remove any trained model independently.
+- Compare predictions with category-colored Actual AQI history.
+- Recalculate MAE, RMSE, R², and Relative Prediction Accuracy.
+
+Relative Prediction Accuracy is calculated as `max(0, 100% - WMAPE)`. The UI
+also explains that R² measures explained AQI variance and is not an accuracy
+percentage.
+
+## 11. LightGBM-Only Production Export
 
 Place trained LightGBM text models here:
 
@@ -194,7 +265,7 @@ The backend loads these paths automatically:
 Generate both files from the panel training script:
 
 ```powershell
-python scr/train_combined_panel_models.py --lightgbm-only
+.\.venv\Scripts\python.exe scr/train_combined_panel_models.py --lightgbm-only
 ```
 
 This trains only the production LightGBM models and exports:
@@ -206,7 +277,10 @@ models/lightgbm_forecast24h.txt
 
 If the model files are absent, the app still runs with a deterministic fallback predictor for demo purposes.
 
-## 9. Leakage-Control Rules
+The LightGBM-only command does not overwrite the full five-model leaderboard,
+scenario evaluation, or station-aware historical prediction report.
+
+## 12. Leakage-Control Rules
 
 The backend excludes current PM2.5 and PM10 from the prediction matrix.
 
@@ -221,7 +295,7 @@ For `target_hour_ahead = 24`, it uses:
 - Cross-city spatial lags: 24h, 48h, 72h
 - No local AQI from t-1 through t-23
 
-## 10. Troubleshooting
+## 13. Troubleshooting
 
 If FastAPI cannot start because dependencies are missing:
 
