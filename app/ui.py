@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import html
 import math
 import os
 import sqlite3
 import sys
 import time
+from collections.abc import Sequence
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -61,6 +63,13 @@ EMPTY_HISTORY_WARNING = (
     "No historical records were found for the selected period. "
     "Please update the filters."
 )
+MODEL_CARD_ACCENTS = {
+    "LightGBM": "#3b82f6",
+    "XGBoost": "#f59e0b",
+    "CatBoost": "#a855f7",
+    "Random Forest": "#a16207",
+    "Linear Ridge": "#14b8a6",
+}
 
 
 @st.cache_resource(show_spinner=False)
@@ -175,6 +184,39 @@ def aqi_category(aqi: float) -> tuple[str, str]:
     return "Hazardous", "#7f1d1d"
 
 
+def metric_card_html(
+    label: str,
+    value: str,
+    detail: str,
+    accent: str,
+    variant: str = "model",
+) -> str:
+    return (
+        f'<div class="metric-card metric-card-{html.escape(variant)}" '
+        f'style="--metric-accent:{html.escape(accent)}">'
+        f'<div class="metric-label">{html.escape(label)}</div>'
+        f'<div class="metric-value">{html.escape(value)}</div>'
+        f'<div class="metric-detail">{html.escape(detail)}</div>'
+        "</div>"
+    )
+
+
+def metric_cards_grid_html(
+    cards: Sequence[tuple[str, str, str, str]],
+    variant: str,
+) -> str:
+    card_markup = "".join(
+        metric_card_html(label, value, detail, accent, variant)
+        for label, value, detail, accent in cards
+    )
+    safe_variant = html.escape(variant)
+    return (
+        f'<div class="metric-card-grid metric-card-grid-{safe_variant}">'
+        f"{card_markup}"
+        "</div>"
+    )
+
+
 def timeline_frame(prediction: dict[str, Any], horizon: int) -> pd.DataFrame:
     confidence = prediction["confidence_interval"]
     predicted_aqi = float(prediction["predicted_aqi"])
@@ -245,23 +287,35 @@ def render_live_forecast_content(
         )
 
     category, category_color = aqi_category(float(prediction["predicted_aqi"]))
-    metric_columns = st.columns(4)
-    metric_columns[0].metric(
-        "Predicted AQI",
-        f"{prediction['predicted_aqi']:.2f}",
-        category,
+    live_metrics = (
+        (
+            "Predicted AQI",
+            f"{prediction['predicted_aqi']:.2f}",
+            category,
+            category_color,
+        ),
+        (
+            "Temperature",
+            f"{weather['temperature_2m']:.1f} C",
+            "Air temperature",
+            "#f97316",
+        ),
+        (
+            "Humidity",
+            f"{weather['relative_humidity_2m']:.0f}%",
+            "Relative humidity",
+            "#38bdf8",
+        ),
+        (
+            "Wind",
+            f"{weather['wind_speed_10m']:.2f} m/s",
+            "10 m wind speed",
+            "#14b8a6",
+        ),
     )
-    metric_columns[1].metric(
-        "Temperature",
-        f"{weather['temperature_2m']:.1f} C",
-    )
-    metric_columns[2].metric(
-        "Humidity",
-        f"{weather['relative_humidity_2m']:.0f}%",
-    )
-    metric_columns[3].metric(
-        "Wind",
-        f"{weather['wind_speed_10m']:.2f} m/s",
+    st.markdown(
+        metric_cards_grid_html(live_metrics, "live"),
+        unsafe_allow_html=True,
     )
 
     interval = prediction["confidence_interval"]
@@ -305,15 +359,26 @@ def render_metric_cards(metrics: pd.DataFrame) -> None:
         ascending=False,
         na_position="last",
     )
-    columns = st.columns(min(len(ranked), 5))
-    for column, row in zip(columns, ranked.itertuples(index=False)):
+    cards: list[tuple[str, str, str, str]] = []
+    for row in ranked.itertuples(index=False):
         accuracy = (
             "N/A"
             if pd.isna(row.relative_accuracy)
             else f"{row.relative_accuracy:.2f}%"
         )
         r2_text = "R² N/A" if pd.isna(row.r2) else f"R² {row.r2:.4f}"
-        column.metric(row.model_name, accuracy, r2_text)
+        cards.append(
+            (
+                row.model_name,
+                accuracy,
+                r2_text,
+                MODEL_CARD_ACCENTS.get(row.model_name, "#64748b"),
+            )
+        )
+    st.markdown(
+        metric_cards_grid_html(cards, "model"),
+        unsafe_allow_html=True,
+    )
 
 
 def render_diagnostics_tab() -> None:
@@ -435,33 +500,128 @@ def render_diagnostics_tab() -> None:
     )
 
 
-st.set_page_config(page_title="California AQI Forecasting", page_icon="CA", layout="wide")
-st.markdown(
-    """
-    <style>
+def dashboard_styles() -> str:
+    return """
     .main .block-container {
         padding-top: 1.5rem;
         max-width: 1180px;
     }
     .aqi-title {
+        color: var(--text-color);
         font-size: 2.05rem;
         font-weight: 760;
         letter-spacing: 0;
         margin-bottom: 0.15rem;
     }
     .aqi-subtitle {
-        color: #536471;
+        color: var(--text-color);
         font-size: 1.02rem;
-        margin-bottom: 1rem;
+        margin-bottom: 0.75rem;
+        opacity: 0.68;
     }
-    .metric-strip {
-        border: 1px solid #e6edf3;
+    .aqi-accent-strip {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        height: 4px;
+        margin: 0 0 1.15rem;
+        overflow: hidden;
+        border: 1px solid rgba(128, 140, 155, 0.32);
+        border-radius: 4px;
+    }
+    .aqi-accent-good { background: #16a34a; }
+    .aqi-accent-moderate { background: #eab308; }
+    .aqi-accent-sensitive { background: #f97316; }
+    .aqi-accent-unhealthy { background: #dc2626; }
+    .aqi-accent-very-unhealthy { background: #7e22ce; }
+    .aqi-accent-hazardous { background: #7f1d1d; }
+    .metric-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 0.75rem;
+        margin: 0.35rem 0 0.9rem;
+    }
+    .metric-card {
+        min-height: 126px;
+        padding: 0.85rem 0.9rem;
+        border: 1px solid rgba(128, 140, 155, 0.32);
+        border-top: 3px solid var(--metric-accent);
         border-radius: 8px;
-        padding: 0.8rem 0.9rem;
-        background: #ffffff;
+        background: var(--secondary-background-color);
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+    }
+    .metric-card-live {
+        min-height: 116px;
+    }
+    .metric-label {
+        color: var(--text-color);
+        font-size: 0.82rem;
+        font-weight: 650;
+        line-height: 1.25;
+        opacity: 0.72;
+    }
+    .metric-value {
+        color: var(--text-color);
+        font-size: 1.82rem;
+        font-weight: 720;
+        line-height: 1.15;
+        margin-top: 0.42rem;
+        overflow-wrap: anywhere;
+    }
+    .metric-detail {
+        color: var(--metric-accent);
+        font-size: 0.78rem;
+        font-weight: 650;
+        line-height: 1.3;
+        margin-top: 0.5rem;
+    }
+    [data-testid="stPlotlyChart"],
+    [data-testid="stDataFrame"],
+    [data-testid="stDeckGlJsonChart"],
+    [data-testid="stExpander"] {
+        border: 1px solid rgba(128, 140, 155, 0.32);
+        border-radius: 8px;
+        overflow: hidden;
+        background: var(--background-color);
+    }
+    [data-testid="stPlotlyChart"] {
+        padding: 0.35rem;
+    }
+    [data-testid="stDataFrame"] {
+        padding: 0.2rem;
+    }
+    [data-testid="stExpander"] {
+        padding: 0.15rem 0.45rem;
+    }
+    div[data-baseweb="select"] > div,
+    [data-testid="stDateInput"] input,
+    [data-testid="stMultiSelect"] [data-baseweb="select"] > div {
+        border-color: rgba(128, 140, 155, 0.42);
+        background: var(--secondary-background-color);
+    }
+    div[data-baseweb="select"] > div:hover,
+    [data-testid="stDateInput"] input:hover,
+    [data-testid="stMultiSelect"] [data-baseweb="select"] > div:hover {
+        border-color: #64748b;
+    }
+    button[data-baseweb="tab"] {
+        border-bottom: 2px solid transparent;
+        color: var(--text-color);
+        opacity: 0.7;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        border-bottom-color: #38bdf8;
+        color: var(--text-color);
+        opacity: 1;
+    }
+    [data-testid="stSegmentedControl"] {
+        padding: 0.2rem;
+        border: 1px solid rgba(128, 140, 155, 0.32);
+        border-radius: 8px;
+        background: var(--secondary-background-color);
     }
     .air-alert {
-        border-left: 6px solid;
+        border: 1px solid;
+        border-left-width: 6px;
         padding: 1rem 1.1rem;
         border-radius: 8px;
         line-height: 1.45;
@@ -482,6 +642,30 @@ st.markdown(
         background: #fff1f2;
         color: #7f1d1d;
     }
+    @media (max-width: 760px) {
+        .main .block-container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+        .aqi-title {
+            font-size: 1.7rem;
+        }
+        .metric-card,
+        .metric-card-live {
+            min-height: 108px;
+        }
+        .metric-value {
+            font-size: 1.5rem;
+        }
+    }
+    """
+
+
+st.set_page_config(page_title="California AQI Forecasting", page_icon="CA", layout="wide")
+st.markdown(
+    f"""
+    <style>
+    {dashboard_styles()}
     </style>
     """,
     unsafe_allow_html=True,
@@ -490,6 +674,19 @@ st.markdown(
 st.markdown('<div class="aqi-title">California AQI Forecasting Dashboard</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="aqi-subtitle">Fresno, Los Angeles, and San Jose hourly AQI nowcasting with leakage-controlled 24-hour forecasting.</div>',
+    unsafe_allow_html=True,
+)
+st.markdown(
+    """
+    <div class="aqi-accent-strip" aria-hidden="true">
+        <span class="aqi-accent-good"></span>
+        <span class="aqi-accent-moderate"></span>
+        <span class="aqi-accent-sensitive"></span>
+        <span class="aqi-accent-unhealthy"></span>
+        <span class="aqi-accent-very-unhealthy"></span>
+        <span class="aqi-accent-hazardous"></span>
+    </div>
+    """,
     unsafe_allow_html=True,
 )
 

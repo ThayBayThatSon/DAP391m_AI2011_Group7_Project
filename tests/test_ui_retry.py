@@ -31,11 +31,18 @@ class FakeResponse:
 
 
 class FakePanel:
+    def __init__(self, owner=None):
+        self.owner = owner
+
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc, traceback):
         return False
+
+    def markdown(self, body, *args, **kwargs):
+        if self.owner is not None:
+            self.owner.markdown_calls.append(str(body))
 
     def metric(self, *args, **kwargs):
         return None
@@ -62,6 +69,7 @@ class FakeStreamlit(types.ModuleType):
         self.segmented_control_kwargs: dict = {}
         self.segmented_control_calls: list[dict] = []
         self.tab_labels: list[str] = []
+        self.markdown_calls: list[str] = []
 
     def cache_data(self, *args, **kwargs):
         def decorator(func):
@@ -78,17 +86,17 @@ class FakeStreamlit(types.ModuleType):
     def set_page_config(self, *args, **kwargs):
         return None
 
-    def markdown(self, *args, **kwargs):
-        return None
+    def markdown(self, body, *args, **kwargs):
+        self.markdown_calls.append(str(body))
 
     def columns(self, *args, **kwargs):
         spec = args[0] if args else 1
         count = len(spec) if isinstance(spec, list) else int(spec)
-        return [FakePanel() for _ in range(count)]
+        return [FakePanel(self) for _ in range(count)]
 
     def tabs(self, labels):
         self.tab_labels = list(labels)
-        return [FakePanel() for _ in labels]
+        return [FakePanel(self) for _ in labels]
 
     def selectbox(self, *args, **kwargs):
         return "Fresno"
@@ -110,7 +118,7 @@ class FakeStreamlit(types.ModuleType):
         return kwargs.get("default", options[0])
 
     def expander(self, *args, **kwargs):
-        return FakePanel()
+        return FakePanel(self)
 
     def slider(self, *args, **kwargs):
         self.slider_kwargs = kwargs
@@ -298,6 +306,46 @@ class DashboardPredictionModeTest(unittest.TestCase):
             "30 Days",
         )
         self.assertEqual(fake_streamlit.errors, [])
+
+        rendered_markup = "\n".join(fake_streamlit.markdown_calls)
+        self.assertIn(".aqi-accent-strip", rendered_markup)
+        self.assertIn(".metric-card-grid", rendered_markup)
+        self.assertIn('data-testid="stPlotlyChart"', rendered_markup)
+        self.assertIn("border: 1px solid", rendered_markup)
+        self.assertIn("var(--text-color)", rendered_markup)
+        self.assertIn("var(--secondary-background-color)", rendered_markup)
+        self.assertNotIn(".aqi-title {\n        color: #f8fafc;", rendered_markup)
+        for category_color in (
+            "#16a34a",
+            "#eab308",
+            "#f97316",
+            "#dc2626",
+            "#7e22ce",
+            "#7f1d1d",
+        ):
+            self.assertIn(category_color, rendered_markup)
+
+        module.render_metric_cards(
+            pd.DataFrame(
+                [
+                    {
+                        "model_name": model_name,
+                        "relative_accuracy": 90.0,
+                        "r2": 0.8,
+                    }
+                    for model_name in fake_diagnostics.MODEL_NAMES
+                ]
+            )
+        )
+        rendered_markup = "\n".join(fake_streamlit.markdown_calls)
+        for model_accent in (
+            "#3b82f6",
+            "#f59e0b",
+            "#a855f7",
+            "#a16207",
+            "#14b8a6",
+        ):
+            self.assertIn(model_accent, rendered_markup)
 
         post_calls = {"count": 0}
 
