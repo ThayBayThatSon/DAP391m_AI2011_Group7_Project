@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import math
+import sqlite3
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from typing import Iterable, Iterator
 
 import numpy as np
 import pandas as pd
@@ -34,6 +37,10 @@ SCENARIOS = {
     },
 }
 QUICK_RANGES = ("24 Hours", "7 Days", "30 Days", "Full Custom Range")
+CONFIGURATION_TO_SCENARIO = {
+    details["configuration"]: (label, details["horizon_hours"])
+    for label, details in SCENARIOS.items()
+}
 
 
 @dataclass(frozen=True)
@@ -118,3 +125,178 @@ def calculate_model_metrics(aligned: pd.DataFrame) -> pd.DataFrame:
             }
         )
     return pd.DataFrame(rows)
+
+
+@contextmanager
+def sqlite_connection(
+    db_path: Path = DEFAULT_DB_PATH,
+) -> Iterator[sqlite3.Connection]:
+    connection = sqlite3.connect(Path(db_path))
+    connection.row_factory = sqlite3.Row
+    try:
+        yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
+
+
+def initialize_prediction_table(db_path: Path = DEFAULT_DB_PATH) -> None:
+    with sqlite_connection(db_path) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS model_predictions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                time TEXT NOT NULL,
+                station_id TEXT NOT NULL,
+                station_name TEXT NOT NULL,
+                city_name TEXT NOT NULL,
+                scenario TEXT NOT NULL,
+                horizon_hours INTEGER NOT NULL CHECK (horizon_hours IN (1, 24)),
+                model_name TEXT NOT NULL,
+                predicted_aqi REAL NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(time, station_id, scenario, model_name)
+            );
+            CREATE INDEX IF NOT EXISTS idx_predictions_city_scenario_time
+                ON model_predictions(city_name, scenario, time);
+            CREATE INDEX IF NOT EXISTS idx_predictions_model_scenario_time
+                ON model_predictions(model_name, scenario, time);
+            """
+        )
+
+
+def sync_prediction_csv(
+    prediction_path: Path = DEFAULT_PREDICTION_PATH,
+    db_path: Path = DEFAULT_DB_PATH,
+) -> int:
+    frame = pd.read_csv(prediction_path)
+    required = {
+        "Configuration",
+        "Model",
+        "time",
+        "station_id",
+        "station_name",
+        "city_name",
+        "Predicted_AQI",
+    }
+    missing = required.difference(frame.columns)
+    if missing:
+        raise ValueError(f"Prediction report is missing columns: {sorted(missing)}")
+    if not set(frame["Model"]).issubset(MODEL_NAMES):
+        raise ValueError("Prediction report contains unsupported model names.")
+    if not set(frame["Configuration"]).issubset(CONFIGURATION_TO_SCENARIO):
+        raise ValueError("Prediction report contains unsupported configurations.")
+
+    records: list[tuple[object, ...]] = []
+    for row in frame.itertuples(index=False):
+        scenario, horizon = CONFIGURATION_TO_SCENARIO[row.Configuration]
+        records.append(
+            (
+                pd.Timestamp(row.time).strftime("%Y-%m-%d %H:%M:%S"),
+                str(row.station_id),
+                str(row.station_name),
+                str(row.city_name),
+                scenario,
+                horizon,
+                str(row.Model),
+                float(row.Predicted_AQI),
+            )
+        )
+
+    initialize_prediction_table(db_path)
+    with sqlite_connection(db_path) as connection:
+        connection.executemany(
+            """
+            INSERT INTO model_predictions (
+                time, station_id, station_name, city_name, scenario,
+                horizon_hours, model_name, predicted_aqi
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(time, station_id, scenario, model_name) DO UPDATE SET
+                station_name=excluded.station_name,
+                city_name=excluded.city_name,
+                horizon_hours=excluded.horizon_hours,
+                predicted_aqi=excluded.predicted_aqi,
+                created_at=CURRENT_TIMESTAMP
+            """,
+            records,
+        )
+    return len(records)
+
+
+def _history_station_ids(city_name: str) -> tuple[str, ...]:
+    mapping = {
+        "Fresno": ("FRES_OPENMETEO",),
+        "Los Angeles": ("LA_OPENMETEO",),
+        "San Jose": ("SJ_OPENMETEO",),
+    }
+    try:
+        return mapping[city_name]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported city: {city_name}") from exc
+
+
+def load_validation_data(
+    city_name: str,
+    scenario: str,
+    start_at: pd.Timestamp,
+    end_at: pd.Timestamp,
+    model_names: Iterable[str],
+    db_path: Path = DEFAULT_DB_PATH,
+) -> pd.DataFrame:
+    if scenario not in SCENARIOS:
+        raise ValueError(f"Unsupported scenario: {scenario}")
+
+    selected_models = tuple(model_names)
+    unsupported = set(selected_models).difference(MODEL_NAMES)
+    if unsupported:
+        raise ValueError(f"Unsupported models: {sorted(unsupported)}")
+
+    station_ids = _history_station_ids(city_name)
+    station_placeholders = ",".join("?" for _ in station_ids)
+    start_text = pd.Timestamp(start_at).strftime("%Y-%m-%d %H:%M:%S")
+    end_text = pd.Timestamp(end_at).strftime("%Y-%m-%d %H:%M:%S")
+
+    with sqlite_connection(db_path) as connection:
+        actual = pd.read_sql_query(
+            f"""
+            SELECT time, station_id, target_aqi AS actual_aqi
+            FROM meteorology_history
+            WHERE station_id IN ({station_placeholders})
+              AND time BETWEEN ? AND ?
+              AND target_aqi IS NOT NULL
+            ORDER BY time, station_id
+            """,
+            connection,
+            params=(*station_ids, start_text, end_text),
+            parse_dates=["time"],
+        )
+        if actual.empty or not selected_models:
+            actual["model_name"] = pd.NA
+            actual["predicted_aqi"] = np.nan
+            return actual
+
+        model_placeholders = ",".join("?" for _ in selected_models)
+        predictions = pd.read_sql_query(
+            f"""
+            SELECT time, station_id, model_name, predicted_aqi
+            FROM model_predictions
+            WHERE city_name = ?
+              AND scenario = ?
+              AND model_name IN ({model_placeholders})
+              AND time BETWEEN ? AND ?
+            ORDER BY time, model_name
+            """,
+            connection,
+            params=(
+                city_name,
+                scenario,
+                *selected_models,
+                start_text,
+                end_text,
+            ),
+            parse_dates=["time"],
+        )
+    return predictions.merge(actual, on=["time", "station_id"], how="inner")
