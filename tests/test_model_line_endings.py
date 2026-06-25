@@ -1,5 +1,8 @@
 from pathlib import Path
+import tempfile
 import unittest
+
+from app.model_loader import load_lightgbm_booster
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +28,19 @@ class ModelLineEndingTests(unittest.TestCase):
         attributes = (PROJECT_ROOT / ".gitattributes").read_text(encoding="utf-8")
         self.assertIn("models/**/*.txt -text", attributes)
         self.assertIn("models/*.txt -text", attributes)
+
+    def test_loader_repairs_crlf_model_before_lightgbm_parses_it(self):
+        source = PROJECT_ROOT / "models" / "lightgbm_forecast24h.txt"
+        corrupted_bytes = source.read_bytes().replace(b"\n", b"\r\n")
+
+        with tempfile.TemporaryDirectory() as directory:
+            model_path = Path(directory) / "windows-checkout-model.txt"
+            model_path.write_bytes(corrupted_bytes)
+
+            booster = load_lightgbm_booster(model_path)
+
+        self.assertEqual(booster.num_trees(), 492)
+        self.assertEqual(booster.num_feature(), 49)
 
 
 if __name__ == "__main__":

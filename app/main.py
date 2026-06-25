@@ -13,6 +13,8 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from app.model_loader import load_lightgbm_booster
+
 
 APP_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_DIR.parent
@@ -525,9 +527,7 @@ class LightGBMModel:
             logger.warning("Model file not found at %s. Falling back to deterministic baseline.", self.model_path)
             return
         try:
-            import lightgbm as lgb
-
-            self.booster = lgb.Booster(model_file=str(self.model_path))
+            self.booster = load_lightgbm_booster(self.model_path)
             self.feature_names = list(self.booster.feature_name())
             logger.info("Loaded LightGBM model for horizon %s from %s", self.horizon, self.model_path)
         except Exception as exc:
