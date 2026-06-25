@@ -11,7 +11,6 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import altair as alt
 import pandas as pd
 import requests
 import streamlit as st
@@ -35,6 +34,7 @@ from app.diagnostics import (
 )
 from app.alerts import evaluate_air_stagnation_alert
 from app.current_aqi import AQIReading, resolve_current_aqi
+from app.forecast_panel import build_forecast_range_panel
 
 API_BASE_URL = os.getenv("AQI_API_URL", "").strip()
 USE_REMOTE_API = bool(API_BASE_URL)
@@ -249,51 +249,6 @@ def metric_cards_grid_html(
     )
 
 
-def timeline_frame(prediction: dict[str, Any], horizon: int) -> pd.DataFrame:
-    confidence = prediction["confidence_interval"]
-    predicted_aqi = float(prediction["predicted_aqi"])
-    hours = list(range(0, horizon + 1))
-    if horizon == 0:
-        horizon = 1
-    return pd.DataFrame(
-        {
-            "Forecast Hour": hours,
-            "Predicted AQI": [predicted_aqi for _ in hours],
-            "Lower Bound": [
-                max(predicted_aqi - (predicted_aqi - confidence["lower"]) * (hour / max(horizon, 1)), 0)
-                for hour in hours
-            ],
-            "Upper Bound": [
-                min(predicted_aqi + (confidence["upper"] - predicted_aqi) * (hour / max(horizon, 1)), 500)
-                for hour in hours
-            ],
-        }
-    )
-
-
-def render_timeline_chart(frame: pd.DataFrame, color: str) -> None:
-    band = (
-        alt.Chart(frame)
-        .mark_area(opacity=0.22, color=color)
-        .encode(
-            x=alt.X("Forecast Hour:Q", title="Hours Ahead", scale=alt.Scale(domain=[0, max(frame["Forecast Hour"].max(), 1)])),
-            y=alt.Y("Lower Bound:Q", title="AQI", scale=alt.Scale(domain=[0, max(frame["Upper Bound"].max() + 20, 80)])),
-            y2="Upper Bound:Q",
-        )
-    )
-    line = (
-        alt.Chart(frame)
-        .mark_line(color=color, strokeWidth=3)
-        .encode(x="Forecast Hour:Q", y="Predicted AQI:Q")
-    )
-    points = (
-        alt.Chart(frame.tail(1))
-        .mark_circle(color=color, size=90)
-        .encode(x="Forecast Hour:Q", y="Predicted AQI:Q")
-    )
-    st.altair_chart((band + line + points).properties(height=360), width="stretch")
-
-
 def render_live_forecast_content(
     observed_at: datetime,
     weather: dict[str, float],
@@ -386,12 +341,29 @@ def render_live_forecast_content(
     st.caption(
         f"{prediction['model_horizon']} | observed "
         f"{observed_at.strftime('%Y-%m-%d %H:%M UTC')} | "
-        f"CI {interval['lower']:.2f}-{interval['upper']:.2f} AQI | "
         f"VPD {vpd:.3f} kPa"
     )
-    render_timeline_chart(
-        timeline_frame(prediction, horizon),
-        category_color,
+    figure, summary = build_forecast_range_panel(
+        predicted_aqi=float(prediction["predicted_aqi"]),
+        confidence_lower=float(interval["lower"]),
+        confidence_upper=float(interval["upper"]),
+        horizon=horizon,
+        current_aqi=current_aqi.value if current_aqi.is_current else None,
+        current_is_live=current_aqi.is_current,
+    )
+    st.markdown(
+        (
+            '<div class="forecast-summary">'
+            '<span class="forecast-summary-label">Forecast comparison</span>'
+            f"<span>{html.escape(summary)}</span>"
+            "</div>"
+        ),
+        unsafe_allow_html=True,
+    )
+    st.plotly_chart(
+        figure,
+        width="stretch",
+        config={"displaylogo": False, "displayModeBar": False},
     )
 
 
@@ -646,6 +618,24 @@ def dashboard_styles() -> str:
         margin-top: 0.55rem;
         opacity: 0.58;
         overflow-wrap: anywhere;
+    }
+    .forecast-summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem 0.7rem;
+        align-items: baseline;
+        padding: 0.7rem 0.85rem;
+        margin: 0.45rem 0 0.25rem;
+        border: 1px solid rgba(128, 140, 155, 0.32);
+        border-radius: 8px;
+        background: var(--secondary-background-color);
+        color: var(--text-color);
+        font-size: 0.82rem;
+        line-height: 1.4;
+    }
+    .forecast-summary-label {
+        color: #38bdf8;
+        font-weight: 700;
     }
     [data-testid="stPlotlyChart"],
     [data-testid="stDataFrame"],

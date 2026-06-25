@@ -71,6 +71,7 @@ class FakeStreamlit(types.ModuleType):
         self.segmented_control_calls: list[dict] = []
         self.tab_labels: list[str] = []
         self.markdown_calls: list[str] = []
+        self.plotly_chart_calls: list[dict] = []
 
     def cache_data(self, *args, **kwargs):
         def decorator(func):
@@ -134,8 +135,10 @@ class FakeStreamlit(types.ModuleType):
     def altair_chart(self, *args, **kwargs):
         return None
 
-    def plotly_chart(self, *args, **kwargs):
-        return None
+    def plotly_chart(self, figure, *args, **kwargs):
+        self.plotly_chart_calls.append(
+            {"figure": figure, "args": args, "kwargs": kwargs}
+        )
 
     def dataframe(self, *args, **kwargs):
         return None
@@ -349,6 +352,14 @@ class DashboardPredictionModeTest(unittest.TestCase):
         self.assertIn("Open-Meteo Air Quality", rendered_markup)
         self.assertIn("+8.7 vs current", rendered_markup)
         self.assertIn("metric-meta", rendered_markup)
+        self.assertGreaterEqual(len(fake_streamlit.plotly_chart_calls), 1)
+        live_figure = fake_streamlit.plotly_chart_calls[0]["figure"]
+        self.assertIn(
+            "Forecast +24h",
+            [trace.name for trace in live_figure.data],
+        )
+        self.assertNotIn("Forecast Hour", str(live_figure))
+        self.assertIn("Forecast comparison", rendered_markup)
         for category_color in (
             "#16a34a",
             "#eab308",
