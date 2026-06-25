@@ -22,25 +22,37 @@ class ForecastRangePanelTest(unittest.TestCase):
         )
 
         self.assertEqual(tuple(figure.layout.xaxis.range), (0, 100))
-        self.assertEqual(figure.layout.height, 260)
-        self.assertEqual(len(figure.layout.shapes), 6)
+        self.assertEqual(figure.layout.height, 180)
+        self.assertFalse(figure.layout.showlegend)
+        self.assertEqual(len(figure.layout.shapes), 9)
 
         forecast = next(
             trace for trace in figure.data if trace.name == "Forecast +1h"
         )
         current = next(trace for trace in figure.data if trace.name == "Current")
-        interval = next(
-            trace
-            for trace in figure.data
-            if trace.name == "Confidence interval"
-        )
+        shapes = {shape.name: shape for shape in figure.layout.shapes}
+        interval = shapes["Confidence interval"]
 
         self.assertEqual(list(forecast.x), [73.0])
         self.assertEqual(forecast.marker.symbol, "diamond")
+        self.assertEqual(forecast.textposition, "top center")
         self.assertEqual(list(current.x), [68.0])
         self.assertEqual(current.marker.symbol, "circle")
-        self.assertEqual(list(interval.x), [61.0, 85.0])
+        self.assertEqual(current.textposition, "bottom center")
+        self.assertEqual(interval.type, "rect")
+        self.assertEqual(interval.x0, 61.0)
+        self.assertEqual(interval.x1, 85.0)
+        self.assertLess(interval.opacity, 0.5)
+        self.assertEqual(shapes["Forecast marker line"].x0, 73.0)
+        self.assertEqual(shapes["Forecast marker line"].x1, 73.0)
+        self.assertEqual(shapes["Current marker line"].x0, 68.0)
+        self.assertEqual(shapes["Current marker line"].x1, 68.0)
         self.assertEqual(len(forecast.x), 1)
+        category_labels = {
+            annotation.text for annotation in figure.layout.annotations
+        }
+        self.assertIn("Good", category_labels)
+        self.assertIn("Moderate", category_labels)
         self.assertIn("+5.0 AQI", summary)
         self.assertIn("stays Moderate", summary)
 
@@ -83,13 +95,13 @@ class ForecastRangePanelTest(unittest.TestCase):
         forecast = next(
             trace for trace in figure.data if trace.name == "Forecast +24h"
         )
-        interval = next(
-            trace
-            for trace in figure.data
-            if trace.name == "Confidence interval"
-        )
         self.assertEqual(list(forecast.x), [500.0])
-        self.assertEqual(list(interval.x), [0.0, 500.0])
+        interval = next(
+            shape
+            for shape in figure.layout.shapes
+            if shape.name == "Confidence interval"
+        )
+        self.assertEqual((interval.x0, interval.x1), (0.0, 500.0))
         self.assertEqual(tuple(figure.layout.xaxis.range), (0, 500))
 
     def test_summary_reports_category_direction(self):

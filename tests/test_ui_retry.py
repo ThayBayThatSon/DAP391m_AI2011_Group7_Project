@@ -330,7 +330,7 @@ class DashboardPredictionModeTest(unittest.TestCase):
         self.assertEqual(forecast_horizon_control["kwargs"]["default"], 24)
         self.assertEqual(
             fake_streamlit.tab_labels,
-            ["Live Forecast", "📊 Live Validation & Model Diagnostics"],
+            ["AQI Forecast", "Model Validation"],
         )
         self.assertEqual(
             fake_streamlit.segmented_control_kwargs["default"],

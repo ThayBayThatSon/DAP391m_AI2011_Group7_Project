@@ -96,29 +96,70 @@ def build_forecast_range_panel(
             type="rect",
             x0=band_lower,
             x1=band_upper,
-            y0=-0.45,
-            y1=0.45,
+            y0=-0.16,
+            y1=0.16,
             fillcolor=band_color,
-            opacity=0.14,
-            line={"width": 0},
+            opacity=0.22,
+            line={"color": band_color, "width": 0},
             layer="below",
             name=band_name,
+        )
+        visible_lower = max(band_lower, 0.0)
+        visible_upper = min(band_upper, float(axis_max))
+        if visible_lower < visible_upper:
+            label = (
+                "Sensitive Groups"
+                if band_name == "Unhealthy for Sensitive Groups"
+                else band_name
+            )
+            figure.add_annotation(
+                x=(visible_lower + visible_upper) / 2,
+                y=0.0,
+                text=label,
+                showarrow=False,
+                font={"size": 9, "color": "#334155"},
+                opacity=0.82,
+            )
+
+    figure.add_shape(
+        type="rect",
+        x0=lower,
+        x1=upper,
+        y0=-0.075,
+        y1=0.075,
+        fillcolor="#475569",
+        opacity=0.28,
+        line={"color": "#475569", "width": 1},
+        layer="above",
+        name="Confidence interval",
+    )
+    figure.add_shape(
+        type="line",
+        x0=predicted,
+        x1=predicted,
+        y0=-0.22,
+        y1=0.22,
+        line={"color": forecast_color, "width": 3},
+        layer="above",
+        name="Forecast marker line",
+    )
+    if live_current is not None:
+        current_name, current_color, _ = aqi_category(live_current)
+        figure.add_shape(
+            type="line",
+            x0=live_current,
+            x1=live_current,
+            y0=-0.22,
+            y1=0.22,
+            line={"color": current_color, "width": 3},
+            layer="above",
+            name="Current marker line",
         )
 
     figure.add_trace(
         go.Scatter(
-            x=[lower, upper],
-            y=[0.0, 0.0],
-            mode="lines",
-            name="Confidence interval",
-            line={"color": "#475569", "width": 12},
-            hovertemplate="Confidence interval: %{x:.1f} AQI<extra></extra>",
-        )
-    )
-    figure.add_trace(
-        go.Scatter(
             x=[predicted],
-            y=[0.0],
+            y=[0.25],
             mode="markers+text",
             name=f"Forecast +{horizon}h",
             marker={
@@ -133,15 +174,15 @@ def build_forecast_range_panel(
                 f"Forecast +{horizon}h: %{{x:.1f}} AQI"
                 f"<br>{forecast_name}<extra></extra>"
             ),
+            showlegend=False,
         )
     )
 
     if live_current is not None:
-        current_name, current_color, _ = aqi_category(live_current)
         figure.add_trace(
             go.Scatter(
                 x=[live_current],
-                y=[0.0],
+                y=[-0.25],
                 mode="markers+text",
                 name="Current",
                 marker={
@@ -156,25 +197,18 @@ def build_forecast_range_panel(
                     f"Current: %{{x:.1f}} AQI"
                     f"<br>{current_name}<extra></extra>"
                 ),
+                showlegend=False,
             )
         )
 
     figure.update_layout(
-        height=260,
-        margin={"l": 20, "r": 20, "t": 58, "b": 48},
+        height=180,
+        margin={"l": 16, "r": 16, "t": 32, "b": 42},
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font={"color": "#94a3b8"},
         hovermode="closest",
-        showlegend=True,
-        legend={
-            "orientation": "h",
-            "yanchor": "bottom",
-            "y": 1.02,
-            "xanchor": "left",
-            "x": 0.0,
-            "bgcolor": "rgba(0,0,0,0)",
-        },
+        showlegend=False,
         xaxis={
             "title": "US AQI",
             "range": [0, axis_max],
@@ -185,7 +219,7 @@ def build_forecast_range_panel(
             "dtick": 25 if axis_max <= 200 else 50,
         },
         yaxis={
-            "range": [-0.75, 0.75],
+            "range": [-0.62, 0.62],
             "visible": False,
             "fixedrange": True,
         },

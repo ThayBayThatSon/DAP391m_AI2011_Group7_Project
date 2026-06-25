@@ -754,7 +754,7 @@ st.markdown(
 )
 
 live_tab, diagnostics_tab = st.tabs(
-    ["Live Forecast", "📊 Live Validation & Model Diagnostics"]
+    ["AQI Forecast", "Model Validation"]
 )
 
 with live_tab:
