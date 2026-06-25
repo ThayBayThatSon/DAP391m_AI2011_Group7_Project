@@ -234,6 +234,20 @@ def sync_prediction_csv(
     return len(records)
 
 
+def ensure_prediction_data(
+    prediction_path: Path = DEFAULT_PREDICTION_PATH,
+    db_path: Path = DEFAULT_DB_PATH,
+) -> int:
+    initialize_prediction_table(db_path)
+    with sqlite_connection(db_path) as connection:
+        count = connection.execute(
+            "SELECT COUNT(*) FROM model_predictions"
+        ).fetchone()[0]
+    if count:
+        return 0
+    return sync_prediction_csv(prediction_path, db_path)
+
+
 def _history_station_ids(city_name: str) -> tuple[str, ...]:
     mapping = {
         "Fresno": ("FRES_OPENMETEO",),

@@ -9,6 +9,7 @@ from pathlib import Path
 import pandas as pd
 
 from app.diagnostics import (
+    ensure_prediction_data,
     initialize_prediction_table,
     load_validation_data,
     sync_prediction_csv,
@@ -88,6 +89,16 @@ class PredictionSyncTest(unittest.TestCase):
         )
         self.assertEqual(aligned["actual_aqi"].tolist(), [50.0, 75.0])
         self.assertEqual(aligned["predicted_aqi"].tolist(), [48.0, 80.0])
+
+    def test_empty_prediction_table_is_hydrated_once(self):
+        self.assertEqual(
+            ensure_prediction_data(self.csv_path, self.db_path),
+            2,
+        )
+        self.assertEqual(
+            ensure_prediction_data(self.csv_path, self.db_path),
+            0,
+        )
 
     def test_empty_model_selection_still_returns_actual_history(self):
         initialize_prediction_table(self.db_path)

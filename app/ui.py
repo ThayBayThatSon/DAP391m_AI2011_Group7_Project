@@ -23,11 +23,13 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from app.diagnostics import (
     DEFAULT_DB_PATH,
+    DEFAULT_PREDICTION_PATH,
     MODEL_NAMES,
     QUICK_RANGES,
     SCENARIOS,
     build_alignment_figure,
     calculate_model_metrics,
+    ensure_prediction_data,
     initialize_prediction_table,
     load_validation_data,
     resolve_historical_window,
@@ -443,12 +445,17 @@ def render_diagnostics_tab() -> None:
             default="30 Days",
             key="validation_quick_range",
         )
-        selected_models = st.multiselect(
-            "Visible Models",
-            MODEL_NAMES,
-            default=["LightGBM", "Linear Ridge"],
-            key="validation_models",
-        )
+        st.markdown("**Models shown on chart**")
+        model_columns = st.columns(len(MODEL_NAMES))
+        selected_models = [
+            model_name
+            for column, model_name in zip(model_columns, MODEL_NAMES)
+            if column.checkbox(
+                model_name,
+                value=model_name in {"LightGBM", "Linear Ridge"},
+                key=f"validation_model_{model_name}",
+            )
+        ]
 
     if not isinstance(date_range, (tuple, list)) or len(date_range) != 2:
         st.warning("Select both a start date and an end date.")
@@ -460,7 +467,10 @@ def render_diagnostics_tab() -> None:
         quick_range,
     )
     try:
-        initialize_prediction_table(DEFAULT_DB_PATH)
+        ensure_prediction_data(
+            DEFAULT_PREDICTION_PATH,
+            DEFAULT_DB_PATH,
+        )
         aligned = cached_validation_data(
             city_name,
             scenario,

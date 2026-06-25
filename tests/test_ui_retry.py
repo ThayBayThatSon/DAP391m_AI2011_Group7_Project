@@ -60,6 +60,13 @@ class FakePanel:
     def info(self, *args, **kwargs):
         return None
 
+    def checkbox(self, label, value=False, **kwargs):
+        if self.owner is not None:
+            self.owner.checkbox_calls.append(
+                {"label": label, "value": value, "kwargs": kwargs}
+            )
+        return value
+
 
 class FakeStreamlit(types.ModuleType):
     def __init__(self):
@@ -72,6 +79,7 @@ class FakeStreamlit(types.ModuleType):
         self.tab_labels: list[str] = []
         self.markdown_calls: list[str] = []
         self.plotly_chart_calls: list[dict] = []
+        self.checkbox_calls: list[dict] = []
 
     def cache_data(self, *args, **kwargs):
         def decorator(func):
@@ -221,6 +229,9 @@ class DashboardPredictionModeTest(unittest.TestCase):
 
         fake_diagnostics = types.ModuleType("app.diagnostics")
         fake_diagnostics.DEFAULT_DB_PATH = PROJECT_ROOT / "test-aqi-data.db"
+        fake_diagnostics.DEFAULT_PREDICTION_PATH = (
+            PROJECT_ROOT / "test-model-predictions.csv"
+        )
         fake_diagnostics.MODEL_NAMES = (
             "LightGBM",
             "XGBoost",
@@ -239,6 +250,9 @@ class DashboardPredictionModeTest(unittest.TestCase):
             "Long-term Forecasting (24h)": {},
         }
         fake_diagnostics.initialize_prediction_table = lambda db_path: None
+        fake_diagnostics.ensure_prediction_data = (
+            lambda prediction_path, db_path: 0
+        )
         fake_diagnostics.resolve_historical_window = (
             lambda start_date, end_date, quick_range: (
                 pd.Timestamp(start_date),
@@ -336,9 +350,14 @@ class DashboardPredictionModeTest(unittest.TestCase):
             fake_streamlit.segmented_control_kwargs["default"],
             "30 Days",
         )
+        self.assertEqual(
+            [call["label"] for call in fake_streamlit.checkbox_calls],
+            list(fake_diagnostics.MODEL_NAMES),
+        )
         self.assertEqual(fake_streamlit.errors, [])
 
         rendered_markup = "\n".join(fake_streamlit.markdown_calls)
+        self.assertNotIn("Visible Models", rendered_markup)
         self.assertIn(".aqi-accent-strip", rendered_markup)
         self.assertIn(".metric-card-grid", rendered_markup)
         self.assertIn('data-testid="stPlotlyChart"', rendered_markup)
