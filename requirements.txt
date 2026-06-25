@@ -6,6 +6,7 @@ streamlit
 apscheduler
 requests
 scikit-learn
+joblib
 lightgbm
 catboost
 xgboost

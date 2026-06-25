@@ -6,6 +6,9 @@ Stack:
 
 - FastAPI backend: `app/main.py`
 - Streamlit dashboard: `app/ui.py`
+- Current AQI integration: `app/current_aqi.py`
+- AQI comparison scale: `app/forecast_panel.py`
+- Historical model diagnostics: `app/diagnostics.py`
 - SQLite local database: `aqi_data.db` in the project root
 - Background Open-Meteo collector: `app/data_collector.py`
 
@@ -36,7 +39,11 @@ Keep this structure:
 ```text
 Project/
   app/
+    alerts.py
+    current_aqi.py
     data_collector.py
+    diagnostics.py
+    forecast_panel.py
     main.py
     ui.py
     README.md
@@ -60,10 +67,18 @@ Notes:
 For a simple demo on one machine, you only need Streamlit:
 
 ```powershell
-streamlit run app/ui.py
+.\.venv\Scripts\python.exe -m streamlit run app/ui.py
+```
+
+To use the same demo port shown in this project:
+
+```powershell
+.\.venv\Scripts\python.exe -m streamlit run app/ui.py --server.port 8502
 ```
 
 In this mode, Streamlit imports the local prediction engine from `app/main.py` and runs prediction in the same Python process. You do not need to start `uvicorn`.
+
+Open `http://localhost:8502`.
 
 ## 4. Optional: Run the FastAPI Backend Separately
 
@@ -177,7 +192,111 @@ streamlit run app/ui.py
 python app/data_collector.py
 ```
 
-## 8. Model Files
+## 8. Train and Package All Five Models
+
+Run the full benchmark training pipeline:
+
+```powershell
+.\.venv\Scripts\python.exe scr/train_combined_panel_models.py
+```
+
+This trains LightGBM, XGBoost, CatBoost, Random Forest, and Linear Ridge for
+both the 1-hour and 24-hour configurations. It writes ten model artifacts under:
+
+```text
+models/
+  nowcast_1h/
+    lightgbm.txt
+    xgboost.json
+    catboost.cbm
+    random_forest.joblib
+    linear_ridge.joblib
+    metadata.json
+  forecast_24h/
+    lightgbm.txt
+    xgboost.json
+    catboost.cbm
+    random_forest.joblib
+    linear_ridge.joblib
+    metadata.json
+```
+
+Each `metadata.json` contains feature order, preprocessing statistics, library
+versions, data split years, and test metrics.
+
+The FastAPI compatibility files remain at:
+
+```text
+models/lightgbm_nowcast.txt
+models/lightgbm_forecast24h.txt
+```
+
+## 9. Synchronize Historical Predictions
+
+After full training, import the station-aware 2025 backtest predictions:
+
+```powershell
+.\.venv\Scripts\python.exe scr/sync_model_predictions.py
+```
+
+The command creates or updates the SQLite `model_predictions` table. It is
+idempotent and safe to run repeatedly.
+
+## 10. Dashboard Tabs
+
+Start Streamlit:
+
+```powershell
+.\.venv\Scripts\python.exe -m streamlit run app/ui.py --server.port 8502
+```
+
+### AQI Forecast
+
+The `AQI Forecast` tab provides:
+
+- Real-time US AQI from the Open-Meteo Air Quality API.
+- A clearly labeled SQLite historical fallback when live AQI is unavailable.
+- LightGBM prediction for exactly `+1h` or `+24h`.
+- Current-versus-forecast AQI change and health-category interpretation.
+- A compact US AQI comparison scale with Current, Forecast, and confidence
+  interval markers.
+- Real-time temperature, humidity, wind, VPD, and AQI-aware stagnation alerts.
+
+The comparison scale intentionally does not draw intermediate hourly forecast
+points because each production model returns only one target horizon.
+
+### Model Validation
+
+Open the `Model Validation` tab to:
+
+- Filter Fresno, Los Angeles, or San Jose.
+- Switch between 1-hour nowcasting and 24-hour forecasting.
+- Select 24-hour, 7-day, 30-day, or custom historical windows.
+- Add or remove any trained model independently.
+- Compare predictions with category-colored Actual AQI history.
+- Recalculate MAE, RMSE, R², and Relative Prediction Accuracy.
+
+Relative Prediction Accuracy is calculated as `max(0, 100% - WMAPE)`. The UI
+also explains that R² measures explained AQI variance and is not an accuracy
+percentage.
+
+## 11. Current AQI Data Source
+
+The dashboard requests `current=us_aqi` from:
+
+```text
+https://air-quality-api.open-meteo.com/v1/air-quality
+```
+
+The card identifies this value as `Open-Meteo Air Quality`; it should not be
+interpreted as a regulatory monitor measurement.
+
+If the live request fails, the dashboard reads the newest matching non-null
+`target_aqi` value from SQLite and labels it `Last Recorded AQI` with its stored
+timestamp. A stale database value is never labeled as current and is not used
+to calculate the forecast-versus-current difference.
+
+## 12. LightGBM-Only Production Export
 
 Place trained LightGBM text models here:
 
@@ -194,7 +313,7 @@ The backend loads these paths automatically:
 Generate both files from the panel training script:
 
 ```powershell
-python scr/train_combined_panel_models.py --lightgbm-only
+.\.venv\Scripts\python.exe scr/train_combined_panel_models.py --lightgbm-only
 ```
 
 This trains only the production LightGBM models and exports:
@@ -206,7 +325,10 @@ models/lightgbm_forecast24h.txt
 
 If the model files are absent, the app still runs with a deterministic fallback predictor for demo purposes.
 
-## 9. Leakage-Control Rules
+The LightGBM-only command does not overwrite the full five-model leaderboard,
+scenario evaluation, or station-aware historical prediction report.
+
+## 13. Leakage-Control Rules
 
 The backend excludes current PM2.5 and PM10 from the prediction matrix.
 
@@ -221,7 +343,19 @@ For `target_hour_ahead = 24`, it uses:
 - Cross-city spatial lags: 24h, 48h, 72h
 - No local AQI from t-1 through t-23
 
-## 10. Troubleshooting
+## 14. Tests
+
+Run the complete test suite:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+The suite covers model packaging, leakage rules, SQLite prediction
+synchronization, Current AQI fallback behavior, AQI comparison scale rendering,
+alerts, and Streamlit integration.
+
+## 15. Troubleshooting
 
 If FastAPI cannot start because dependencies are missing:
 
