@@ -34,6 +34,7 @@ from app.diagnostics import (
     resolve_historical_window,
 )
 from app.alerts import evaluate_air_stagnation_alert
+from app.current_aqi import AQIReading, resolve_current_aqi
 
 API_BASE_URL = os.getenv("AQI_API_URL", "").strip()
 USE_REMOTE_API = bool(API_BASE_URL)
@@ -54,10 +55,22 @@ WEATHER_VARIABLES = [
     "cloud_cover",
 ]
 
-STATIONS: dict[str, dict[str, float]] = {
-    "Fresno": {"lat": 36.7378, "lon": -119.7871},
-    "Los Angeles": {"lat": 34.0522, "lon": -118.2437},
-    "San Jose": {"lat": 37.3394, "lon": -121.8950},
+STATIONS: dict[str, dict[str, Any]] = {
+    "Fresno": {
+        "lat": 36.7378,
+        "lon": -119.7871,
+        "history_station_ids": ("FRES_OPENMETEO", "FRES"),
+    },
+    "Los Angeles": {
+        "lat": 34.0522,
+        "lon": -118.2437,
+        "history_station_ids": ("LA_OPENMETEO", "LA"),
+    },
+    "San Jose": {
+        "lat": 37.3394,
+        "lon": -121.8950,
+        "history_station_ids": ("SJ_OPENMETEO",),
+    },
 }
 EMPTY_HISTORY_WARNING = (
     "No historical records were found for the selected period. "
@@ -126,6 +139,18 @@ def fetch_realtime_weather(station_name: str) -> tuple[datetime, dict[str, float
     return select_latest_hourly_record(response.json())
 
 
+@st.cache_data(ttl=900, show_spinner=False)
+def fetch_current_aqi(station_name: str) -> AQIReading:
+    station = STATIONS[station_name]
+    return resolve_current_aqi(
+        latitude=station["lat"],
+        longitude=station["lon"],
+        station_ids=station["history_station_ids"],
+        db_path=DEFAULT_DB_PATH,
+        timeout_seconds=REQUEST_TIMEOUT_SECONDS,
+    )
+
+
 def call_prediction_api(station_name: str, horizon: int, observed_at: datetime, weather: dict[str, float]) -> dict[str, Any]:
     payload = {
         "station_name": station_name,
@@ -189,25 +214,32 @@ def metric_card_html(
     value: str,
     detail: str,
     accent: str,
+    meta: str = "",
     variant: str = "model",
 ) -> str:
+    meta_markup = (
+        f'<div class="metric-meta">{html.escape(meta)}</div>'
+        if meta
+        else ""
+    )
     return (
         f'<div class="metric-card metric-card-{html.escape(variant)}" '
         f'style="--metric-accent:{html.escape(accent)}">'
         f'<div class="metric-label">{html.escape(label)}</div>'
         f'<div class="metric-value">{html.escape(value)}</div>'
         f'<div class="metric-detail">{html.escape(detail)}</div>'
+        f"{meta_markup}"
         "</div>"
     )
 
 
 def metric_cards_grid_html(
-    cards: Sequence[tuple[str, str, str, str]],
+    cards: Sequence[tuple[str, str, str, str, str]],
     variant: str,
 ) -> str:
     card_markup = "".join(
-        metric_card_html(label, value, detail, accent, variant)
-        for label, value, detail, accent in cards
+        metric_card_html(label, value, detail, accent, meta, variant)
+        for label, value, detail, accent, meta in cards
     )
     safe_variant = html.escape(variant)
     return (
@@ -266,6 +298,7 @@ def render_live_forecast_content(
     observed_at: datetime,
     weather: dict[str, float],
     prediction: dict[str, Any],
+    current_aqi: AQIReading,
     horizon: int,
     vpd: float,
 ) -> None:
@@ -287,30 +320,61 @@ def render_live_forecast_content(
         )
 
     category, category_color = aqi_category(float(prediction["predicted_aqi"]))
+    if current_aqi.value is None:
+        current_value = "N/A"
+        current_category = "Live reading unavailable"
+        current_color = "#64748b"
+    else:
+        current_value = f"{current_aqi.value:.0f}"
+        current_category, current_color = aqi_category(current_aqi.value)
+
+    current_timestamp = (
+        current_aqi.observed_at.strftime("%Y-%m-%d %H:%M UTC")
+        if current_aqi.observed_at is not None
+        else "No timestamp"
+    )
+    current_meta = f"{current_aqi.source} | {current_timestamp}"
+
+    predicted_detail = category
+    if current_aqi.is_current and current_aqi.value is not None:
+        difference = float(prediction["predicted_aqi"]) - current_aqi.value
+        predicted_detail = f"{category} | {difference:+.1f} vs current"
+
     live_metrics = (
+        (
+            current_aqi.label,
+            current_value,
+            current_category,
+            current_color,
+            current_meta,
+        ),
         (
             "Predicted AQI",
             f"{prediction['predicted_aqi']:.2f}",
-            category,
+            predicted_detail,
             category_color,
+            prediction["model_horizon"],
         ),
         (
             "Temperature",
             f"{weather['temperature_2m']:.1f} C",
             "Air temperature",
             "#f97316",
+            "Open-Meteo weather",
         ),
         (
             "Humidity",
             f"{weather['relative_humidity_2m']:.0f}%",
             "Relative humidity",
             "#38bdf8",
+            "Open-Meteo weather",
         ),
         (
             "Wind",
             f"{weather['wind_speed_10m']:.2f} m/s",
             "10 m wind speed",
             "#14b8a6",
+            "Open-Meteo weather",
         ),
     )
     st.markdown(
@@ -359,7 +423,7 @@ def render_metric_cards(metrics: pd.DataFrame) -> None:
         ascending=False,
         na_position="last",
     )
-    cards: list[tuple[str, str, str, str]] = []
+    cards: list[tuple[str, str, str, str, str]] = []
     for row in ranked.itertuples(index=False):
         accuracy = (
             "N/A"
@@ -373,6 +437,7 @@ def render_metric_cards(metrics: pd.DataFrame) -> None:
                 accuracy,
                 r2_text,
                 MODEL_CARD_ACCENTS.get(row.model_name, "#64748b"),
+                "",
             )
         )
     st.markdown(
@@ -574,6 +639,14 @@ def dashboard_styles() -> str:
         line-height: 1.3;
         margin-top: 0.5rem;
     }
+    .metric-meta {
+        color: var(--text-color);
+        font-size: 0.68rem;
+        line-height: 1.35;
+        margin-top: 0.55rem;
+        opacity: 0.58;
+        overflow-wrap: anywhere;
+    }
     [data-testid="stPlotlyChart"],
     [data-testid="stDataFrame"],
     [data-testid="stDeckGlJsonChart"],
@@ -726,6 +799,7 @@ with live_tab:
         with right_panel:
             with st.spinner("Updating forecast..."):
                 observed_at, weather = fetch_realtime_weather(station_name)
+                current_aqi = fetch_current_aqi(station_name)
                 vpd = vpd_kpa(
                     weather["temperature_2m"],
                     weather["relative_humidity_2m"],
@@ -740,6 +814,7 @@ with live_tab:
                 observed_at,
                 weather,
                 prediction,
+                current_aqi,
                 horizon,
                 vpd,
             )

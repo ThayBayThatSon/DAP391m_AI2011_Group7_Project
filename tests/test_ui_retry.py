@@ -6,6 +6,7 @@ import os
 import sys
 import types
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -253,6 +254,32 @@ class DashboardPredictionModeTest(unittest.TestCase):
             lambda frame, models: object()
         )
 
+        fake_current_aqi = types.ModuleType("app.current_aqi")
+
+        class FakeAQIReading:
+            def __init__(
+                self,
+                value,
+                observed_at,
+                label,
+                source,
+                is_current,
+            ):
+                self.value = value
+                self.observed_at = observed_at
+                self.label = label
+                self.source = source
+                self.is_current = is_current
+
+        fake_current_aqi.AQIReading = FakeAQIReading
+        fake_current_aqi.resolve_current_aqi = lambda **kwargs: FakeAQIReading(
+            value=57.0,
+            observed_at=datetime(2026, 6, 25, 8, 15, tzinfo=timezone.utc),
+            label="Current AQI",
+            source="Open-Meteo Air Quality",
+            is_current=True,
+        )
+
         def fake_get(*args, **kwargs):
             return FakeResponse(
                 200,
@@ -281,6 +308,7 @@ class DashboardPredictionModeTest(unittest.TestCase):
                     "streamlit": fake_streamlit,
                     "app.main": fake_main,
                     "app.diagnostics": fake_diagnostics,
+                    "app.current_aqi": fake_current_aqi,
                 },
             ):
                 with patch.object(requests, "get", side_effect=fake_get):
@@ -315,6 +343,12 @@ class DashboardPredictionModeTest(unittest.TestCase):
         self.assertIn("var(--text-color)", rendered_markup)
         self.assertIn("var(--secondary-background-color)", rendered_markup)
         self.assertNotIn(".aqi-title {\n        color: #f8fafc;", rendered_markup)
+        current_index = rendered_markup.index("Current AQI")
+        predicted_index = rendered_markup.index("Predicted AQI")
+        self.assertLess(current_index, predicted_index)
+        self.assertIn("Open-Meteo Air Quality", rendered_markup)
+        self.assertIn("+8.7 vs current", rendered_markup)
+        self.assertIn("metric-meta", rendered_markup)
         for category_color in (
             "#16a34a",
             "#eab308",
