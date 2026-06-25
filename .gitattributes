@@ -1,0 +1,4 @@
+# LightGBM native text models contain byte offsets in tree_sizes.
+# Treat them as opaque artifacts so Git never rewrites LF to CRLF on Windows.
+models/*.txt -text
+models/**/*.txt -text
