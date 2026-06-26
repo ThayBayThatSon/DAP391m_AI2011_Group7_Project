@@ -268,7 +268,7 @@ class DashboardPredictionModeTest(unittest.TestCase):
             lambda frame: pd.DataFrame()
         )
         fake_diagnostics.build_alignment_figure = (
-            lambda frame, models: object()
+            lambda frame, models, **kwargs: object()
         )
 
         fake_current_aqi = types.ModuleType("app.current_aqi")
@@ -352,7 +352,11 @@ class DashboardPredictionModeTest(unittest.TestCase):
         )
         self.assertEqual(
             [call["label"] for call in fake_streamlit.checkbox_calls],
-            list(fake_diagnostics.MODEL_NAMES),
+            [
+                *list(fake_diagnostics.MODEL_NAMES),
+                "Show wildfire / smoke event markers",
+                "Show detected AQI peak episodes",
+            ],
         )
         self.assertEqual(fake_streamlit.errors, [])
 

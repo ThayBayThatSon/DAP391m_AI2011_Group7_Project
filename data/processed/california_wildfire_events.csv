@@ -1,0 +1,13 @@
+event_name,start_time,end_time,affected_cities,severity,context
+Camp Fire,2018-11-08,2018-11-25,Fresno;San Jose,Extreme,Deadly Butte County wildfire with widespread Northern California smoke impacts
+Woolsey Fire,2018-11-08,2018-11-21,Los Angeles,Extreme,Major Southern California wildfire affecting Los Angeles and Ventura County air quality
+Kincade Fire,2019-10-23,2019-11-06,San Jose,High,Sonoma County wildfire with Bay Area smoke transport potential
+SCU Lightning Complex,2020-08-16,2020-10-01,San Jose,Extreme,Large Bay Area lightning complex wildfire and regional smoke episode
+CZU Lightning Complex,2020-08-16,2020-09-22,San Jose,Extreme,Santa Cruz and San Mateo wildfire complex affecting South Bay smoke exposure
+Creek Fire,2020-09-04,2020-12-24,Fresno;San Jose,Extreme,Sierra National Forest wildfire with major Central Valley smoke impacts
+Bobcat Fire,2020-09-06,2020-12-18,Los Angeles,High,San Gabriel Mountains wildfire affecting Los Angeles Basin smoke conditions
+Dixie Fire,2021-07-13,2021-10-25,Fresno;San Jose,Extreme,Large Northern California wildfire with broad regional smoke transport
+Caldor Fire,2021-08-14,2021-10-21,Fresno;San Jose,High,Sierra Nevada wildfire smoke episode with Northern and Central California impacts
+Mosquito Fire,2022-09-06,2022-10-22,Fresno;San Jose,High,Sierra Nevada wildfire with smoke transport into inland and Bay Area corridors
+York Fire,2023-07-28,2023-08-13,Los Angeles,Moderate,Mojave Desert wildfire smoke episode in Southern California context
+Park Fire,2024-07-24,2024-09-26,Fresno;San Jose,Extreme,Large Northern California wildfire with potential regional smoke transport

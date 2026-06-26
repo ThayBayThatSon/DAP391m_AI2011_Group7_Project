@@ -456,6 +456,17 @@ def render_diagnostics_tab() -> None:
                 key=f"validation_model_{model_name}",
             )
         ]
+        marker_column, peak_column = st.columns(2)
+        show_wildfire_events = marker_column.checkbox(
+            "Show wildfire / smoke event markers",
+            value=True,
+            key="validation_show_wildfire_events",
+        )
+        show_detected_peaks = peak_column.checkbox(
+            "Show detected AQI peak episodes",
+            value=True,
+            key="validation_show_detected_peaks",
+        )
 
     if not isinstance(date_range, (tuple, list)) or len(date_range) != 2:
         st.warning("Select both a start date and an end date.")
@@ -492,7 +503,13 @@ def render_diagnostics_tab() -> None:
         "Hover over a timestamp to compare every active model."
     )
     st.plotly_chart(
-        build_alignment_figure(aligned, selected_models),
+        build_alignment_figure(
+            aligned,
+            selected_models,
+            city_name=city_name,
+            show_wildfire_events=show_wildfire_events,
+            show_detected_peaks=show_detected_peaks,
+        ),
         width="stretch",
         config={"displaylogo": False},
     )

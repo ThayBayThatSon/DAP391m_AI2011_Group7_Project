@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import unittest
+import tempfile
 from datetime import date
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -10,8 +12,34 @@ from app.diagnostics import (
     build_alignment_figure,
     calculate_model_metrics,
     classify_aqi,
+    detect_aqi_peak_episodes,
+    load_wildfire_events,
     resolve_historical_window,
 )
+
+
+def sample_alignment_frame() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "time": pd.to_datetime(
+                [
+                    "2025-11-01 00:00:00",
+                    "2025-11-01 01:00:00",
+                    "2025-11-01 00:00:00",
+                    "2025-11-01 01:00:00",
+                ]
+            ),
+            "station_id": ["FRES_OPENMETEO"] * 4,
+            "model_name": [
+                "LightGBM",
+                "LightGBM",
+                "Linear Ridge",
+                "Linear Ridge",
+            ],
+            "actual_aqi": [45.0, 155.0, 45.0, 155.0],
+            "predicted_aqi": [47.0, 150.0, 50.0, 145.0],
+        }
+    )
 
 
 class DiagnosticsMathTest(unittest.TestCase):
@@ -83,27 +111,7 @@ class DiagnosticsMathTest(unittest.TestCase):
 
 class DiagnosticsFigureTest(unittest.TestCase):
     def setUp(self):
-        self.frame = pd.DataFrame(
-            {
-                "time": pd.to_datetime(
-                    [
-                        "2025-11-01 00:00:00",
-                        "2025-11-01 01:00:00",
-                        "2025-11-01 00:00:00",
-                        "2025-11-01 01:00:00",
-                    ]
-                ),
-                "station_id": ["FRES_OPENMETEO"] * 4,
-                "model_name": [
-                    "LightGBM",
-                    "LightGBM",
-                    "Linear Ridge",
-                    "Linear Ridge",
-                ],
-                "actual_aqi": [45.0, 155.0, 45.0, 155.0],
-                "predicted_aqi": [47.0, 150.0, 50.0, 145.0],
-            }
-        )
+        self.frame = sample_alignment_frame()
 
     def test_actual_aqi_is_a_thick_solid_category_colored_path(self):
         figure = build_alignment_figure(self.frame, [])
@@ -167,6 +175,103 @@ class DiagnosticsFigureTest(unittest.TestCase):
         self.assertEqual(prediction.opacity, 0.72)
         self.assertEqual(figure.layout.height, 400)
         self.assertEqual(tuple(figure.layout.yaxis.range), (0, 180))
+
+
+class DiagnosticsWildfireEventTest(unittest.TestCase):
+    def test_load_wildfire_events_filters_by_city_and_date_overlap(self):
+        csv_path = self._write_event_csv(
+            "event_name,start_time,end_time,affected_cities,severity,context\n"
+            "Creek Fire,2020-09-04,2020-09-30,Fresno;San Jose,Extreme,Smoke episode\n"
+            "Southern Event,2020-09-10,2020-09-12,Los Angeles,Moderate,Local smoke\n"
+        )
+
+        events = load_wildfire_events(
+            csv_path,
+            city_name="Fresno",
+            start_at=pd.Timestamp("2020-09-01"),
+            end_at=pd.Timestamp("2020-09-20"),
+        )
+
+        self.assertEqual([event.event_name for event in events], ["Creek Fire"])
+        self.assertEqual(events[0].severity, "Extreme")
+
+    def test_detect_aqi_peak_episodes_groups_contiguous_high_aqi_hours(self):
+        actual = pd.DataFrame(
+            {
+                "time": pd.to_datetime(
+                    [
+                        "2025-12-01 00:00:00",
+                        "2025-12-01 01:00:00",
+                        "2025-12-01 02:00:00",
+                        "2025-12-01 03:00:00",
+                        "2025-12-01 04:00:00",
+                    ]
+                ),
+                "station_id": ["FRES_OPENMETEO"] * 5,
+                "actual_aqi": [58.0, 112.0, 135.0, 88.0, 145.0],
+            }
+        )
+
+        episodes = detect_aqi_peak_episodes(
+            actual,
+            minimum_aqi=100.0,
+            percentile=0.60,
+            max_episodes=3,
+        )
+
+        self.assertEqual(len(episodes), 2)
+        self.assertEqual(episodes[0]["peak_aqi"], 145.0)
+        self.assertEqual(episodes[0]["peak_time"], pd.Timestamp("2025-12-01 04:00:00"))
+        self.assertEqual(episodes[1]["peak_aqi"], 135.0)
+
+    def test_alignment_figure_can_overlay_wildfire_bands_and_detected_peaks(self):
+        csv_path = self._write_event_csv(
+            "event_name,start_time,end_time,affected_cities,severity,context\n"
+            "Creek Fire,2025-10-31,2025-11-02,Fresno,Extreme,Smoke episode\n"
+        )
+
+        figure = build_alignment_figure(
+            sample_alignment_frame(),
+            ["LightGBM"],
+            city_name="Fresno",
+            show_wildfire_events=True,
+            show_detected_peaks=True,
+            wildfire_event_path=csv_path,
+        )
+
+        annotation_texts = [annotation.text for annotation in figure.layout.annotations]
+        trace_names = [trace.name for trace in figure.data]
+        self.assertTrue(any("Creek Fire" in text for text in annotation_texts))
+        self.assertIn("Detected AQI Peak", trace_names)
+
+    def test_alignment_figure_with_event_overlays_is_json_serializable(self):
+        csv_path = self._write_event_csv(
+            "event_name,start_time,end_time,affected_cities,severity,context\n"
+            "Creek Fire,2025-10-31,2025-11-02,Fresno,Extreme,Smoke episode\n"
+        )
+
+        figure = build_alignment_figure(
+            sample_alignment_frame(),
+            ["LightGBM"],
+            city_name="Fresno",
+            show_wildfire_events=True,
+            show_detected_peaks=True,
+            wildfire_event_path=csv_path,
+        )
+
+        self.assertIn("Creek Fire", figure.to_json())
+
+    def _write_event_csv(self, content: str):
+        handle = tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".csv",
+            delete=False,
+            encoding="utf-8",
+        )
+        self.addCleanup(lambda: Path(handle.name).unlink(missing_ok=True))
+        with handle:
+            handle.write(content)
+        return Path(handle.name)
 
 
 if __name__ == "__main__":
