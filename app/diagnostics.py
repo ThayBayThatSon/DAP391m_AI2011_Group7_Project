@@ -150,6 +150,53 @@ def load_wildfire_events(
     return events
 
 
+def list_wildfire_events(
+    event_path: Path = DEFAULT_WILDFIRE_EVENT_PATH,
+    *,
+    city_name: str,
+) -> list[WildfireEvent]:
+    return load_wildfire_events(
+        event_path,
+        city_name=city_name,
+        start_at=pd.Timestamp.min,
+        end_at=pd.Timestamp.max,
+    )
+
+
+def list_available_wildfire_events(
+    *,
+    city_name: str,
+    db_path: Path = DEFAULT_DB_PATH,
+    event_path: Path = DEFAULT_WILDFIRE_EVENT_PATH,
+) -> list[WildfireEvent]:
+    events = list_wildfire_events(event_path, city_name=city_name)
+    if not events:
+        return []
+
+    station_ids = _history_station_ids(city_name)
+    station_placeholders = ",".join("?" for _ in station_ids)
+    available: list[WildfireEvent] = []
+    with sqlite_connection(db_path) as connection:
+        for event in events:
+            count = connection.execute(
+                f"""
+                SELECT COUNT(*)
+                FROM meteorology_history
+                WHERE station_id IN ({station_placeholders})
+                  AND target_aqi IS NOT NULL
+                  AND time BETWEEN ? AND ?
+                """,
+                (
+                    *station_ids,
+                    event.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+                    event.end_time.strftime("%Y-%m-%d %H:%M:%S"),
+                ),
+            ).fetchone()[0]
+            if count:
+                available.append(event)
+    return available
+
+
 def detect_aqi_peak_episodes(
     actual: pd.DataFrame,
     *,
@@ -384,8 +431,8 @@ def ensure_prediction_data(
 
 def _history_station_ids(city_name: str) -> tuple[str, ...]:
     mapping = {
-        "Fresno": ("FRES_OPENMETEO",),
-        "Los Angeles": ("LA_OPENMETEO",),
+        "Fresno": ("FRES_OPENMETEO", "FRES"),
+        "Los Angeles": ("LA_OPENMETEO", "LA"),
         "San Jose": ("SJ_OPENMETEO",),
     }
     try:
@@ -646,8 +693,12 @@ def build_alignment_figure(
                 y=model_rows["predicted_aqi"],
                 mode="lines",
                 name=model_name,
-                line={"color": MODEL_COLORS[model_name], "width": 1.5},
-                opacity=0.72,
+                line={
+                    "color": MODEL_COLORS[model_name],
+                    "width": 1.25,
+                    "dash": "dot",
+                },
+                opacity=0.58,
                 hovertemplate=f"{model_name}: %{{y:.2f}}<extra></extra>",
             )
         )

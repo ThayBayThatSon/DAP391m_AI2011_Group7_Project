@@ -13,8 +13,12 @@ from app.diagnostics import (
     calculate_model_metrics,
     classify_aqi,
     detect_aqi_peak_episodes,
+    list_available_wildfire_events,
+    load_validation_data,
+    list_wildfire_events,
     load_wildfire_events,
     resolve_historical_window,
+    sqlite_connection,
 )
 
 
@@ -171,8 +175,9 @@ class DiagnosticsFigureTest(unittest.TestCase):
         prediction = next(
             trace for trace in figure.data if trace.name == "LightGBM"
         )
-        self.assertEqual(prediction.line.width, 1.5)
-        self.assertEqual(prediction.opacity, 0.72)
+        self.assertEqual(prediction.line.width, 1.25)
+        self.assertEqual(prediction.line.dash, "dot")
+        self.assertEqual(prediction.opacity, 0.58)
         self.assertEqual(figure.layout.height, 400)
         self.assertEqual(tuple(figure.layout.yaxis.range), (0, 180))
 
@@ -194,6 +199,17 @@ class DiagnosticsWildfireEventTest(unittest.TestCase):
 
         self.assertEqual([event.event_name for event in events], ["Creek Fire"])
         self.assertEqual(events[0].severity, "Extreme")
+
+    def test_list_wildfire_events_filters_by_city_without_date_window(self):
+        csv_path = self._write_event_csv(
+            "event_name,start_time,end_time,affected_cities,severity,context\n"
+            "Creek Fire,2020-09-04,2020-09-30,Fresno;San Jose,Extreme,Smoke episode\n"
+            "Bobcat Fire,2020-09-06,2020-11-27,Los Angeles,High,Local smoke\n"
+        )
+
+        events = list_wildfire_events(csv_path, city_name="San Jose")
+
+        self.assertEqual([event.event_name for event in events], ["Creek Fire"])
 
     def test_detect_aqi_peak_episodes_groups_contiguous_high_aqi_hours(self):
         actual = pd.DataFrame(
@@ -262,6 +278,113 @@ class DiagnosticsWildfireEventTest(unittest.TestCase):
         self.assertIn("Creek Fire", figure.to_json())
 
     def _write_event_csv(self, content: str):
+        handle = tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".csv",
+            delete=False,
+            encoding="utf-8",
+        )
+        self.addCleanup(lambda: Path(handle.name).unlink(missing_ok=True))
+        with handle:
+            handle.write(content)
+        return Path(handle.name)
+
+
+class DiagnosticsHistoricalStationTest(unittest.TestCase):
+    def test_validation_data_reads_legacy_epa_station_for_fresno_wildfire_window(self):
+        db_path = self._create_history_db()
+        with sqlite_connection(db_path) as connection:
+            connection.execute(
+                """
+                INSERT INTO meteorology_history
+                    (time, station_id, station_name, target_aqi)
+                VALUES
+                    ('2020-09-05 00:00:00', 'FRES', 'Fresno - Garland', 122.0)
+                """
+            )
+            connection.execute(
+                """
+                INSERT INTO model_predictions
+                    (time, station_id, station_name, city_name, scenario,
+                     horizon_hours, model_name, predicted_aqi)
+                VALUES
+                    ('2020-09-05 00:00:00', 'FRES', 'Fresno - Garland',
+                     'Fresno', 'Short-term Nowcasting (1h)', 1, 'LightGBM', 118.0)
+                """
+            )
+
+        aligned = load_validation_data(
+            "Fresno",
+            "Short-term Nowcasting (1h)",
+            pd.Timestamp("2020-09-01"),
+            pd.Timestamp("2020-09-30 23:59:59"),
+            ["LightGBM"],
+            db_path=db_path,
+        )
+
+        self.assertEqual(len(aligned), 1)
+        self.assertEqual(aligned.iloc[0]["station_id"], "FRES")
+        self.assertEqual(aligned.iloc[0]["actual_aqi"], 122.0)
+
+    def test_available_wildfire_events_excludes_city_windows_without_actual_aqi(self):
+        event_path = self._write_event_csv(
+            "event_name,start_time,end_time,affected_cities,severity,context\n"
+            "Mosquito Fire,2022-09-06,2022-10-22,Fresno;San Jose,High,Smoke episode\n"
+        )
+        db_path = self._create_history_db()
+        with sqlite_connection(db_path) as connection:
+            connection.execute(
+                """
+                INSERT INTO meteorology_history
+                    (time, station_id, station_name, target_aqi)
+                VALUES
+                    ('2022-09-10 00:00:00', 'FRES', 'Fresno - Garland', 118.0)
+                """
+            )
+
+        fresno_events = list_available_wildfire_events(
+            city_name="Fresno",
+            db_path=db_path,
+            event_path=event_path,
+        )
+        san_jose_events = list_available_wildfire_events(
+            city_name="San Jose",
+            db_path=db_path,
+            event_path=event_path,
+        )
+
+        self.assertEqual([event.event_name for event in fresno_events], ["Mosquito Fire"])
+        self.assertEqual(san_jose_events, [])
+
+    def _create_history_db(self) -> Path:
+        db_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(db_file.name)
+        db_file.close()
+        self.addCleanup(lambda: db_path.unlink(missing_ok=True))
+        with sqlite_connection(db_path) as connection:
+            connection.executescript(
+                """
+                CREATE TABLE meteorology_history (
+                    time TEXT NOT NULL,
+                    station_id TEXT NOT NULL,
+                    station_name TEXT NOT NULL,
+                    target_aqi REAL
+                );
+                CREATE TABLE model_predictions (
+                    time TEXT NOT NULL,
+                    station_id TEXT NOT NULL,
+                    station_name TEXT NOT NULL,
+                    city_name TEXT NOT NULL,
+                    scenario TEXT NOT NULL,
+                    horizon_hours INTEGER NOT NULL,
+                    model_name TEXT NOT NULL,
+                    predicted_aqi REAL NOT NULL
+                );
+                """
+            )
+        return db_path
+
+    def _write_event_csv(self, content: str) -> Path:
         handle = tempfile.NamedTemporaryFile(
             mode="w",
             suffix=".csv",

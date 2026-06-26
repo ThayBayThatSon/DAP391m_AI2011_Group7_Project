@@ -31,6 +31,7 @@ from app.diagnostics import (
     calculate_model_metrics,
     ensure_prediction_data,
     initialize_prediction_table,
+    list_available_wildfire_events,
     load_validation_data,
     resolve_historical_window,
 )
@@ -467,6 +468,21 @@ def render_diagnostics_tab() -> None:
             value=True,
             key="validation_show_detected_peaks",
         )
+        wildfire_focus_options = ["Selected date window"]
+        wildfire_focus_events = {}
+        if show_wildfire_events:
+            for event in list_available_wildfire_events(city_name=city_name):
+                label = (
+                    f"{event.event_name} "
+                    f"({event.start_time:%Y-%m-%d} to {event.end_time:%Y-%m-%d})"
+                )
+                wildfire_focus_options.append(label)
+                wildfire_focus_events[label] = event
+        wildfire_focus = st.selectbox(
+            "Wildfire event focus",
+            wildfire_focus_options,
+            key="validation_wildfire_focus",
+        )
 
     if not isinstance(date_range, (tuple, list)) or len(date_range) != 2:
         st.warning("Select both a start date and an end date.")
@@ -477,6 +493,11 @@ def render_diagnostics_tab() -> None:
         date_range[1],
         quick_range,
     )
+    selected_wildfire_event = wildfire_focus_events.get(wildfire_focus)
+    if selected_wildfire_event is not None:
+        start_at = selected_wildfire_event.start_time - pd.Timedelta(days=3)
+        end_at = selected_wildfire_event.end_time + pd.Timedelta(days=3)
+
     try:
         ensure_prediction_data(
             DEFAULT_PREDICTION_PATH,

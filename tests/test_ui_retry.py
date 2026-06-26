@@ -9,6 +9,7 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
+from types import SimpleNamespace
 
 import pandas as pd
 import requests
@@ -264,6 +265,13 @@ class DashboardPredictionModeTest(unittest.TestCase):
         fake_diagnostics.load_validation_data = (
             lambda *args, **kwargs: pd.DataFrame()
         )
+        fake_diagnostics.list_available_wildfire_events = lambda city_name: [
+            SimpleNamespace(
+                event_name="Creek Fire",
+                start_time=pd.Timestamp("2020-09-04"),
+                end_time=pd.Timestamp("2020-09-30"),
+            )
+        ]
         fake_diagnostics.calculate_model_metrics = (
             lambda frame: pd.DataFrame()
         )
