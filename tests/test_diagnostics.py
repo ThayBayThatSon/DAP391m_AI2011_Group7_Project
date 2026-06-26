@@ -181,6 +181,36 @@ class DiagnosticsFigureTest(unittest.TestCase):
         self.assertEqual(figure.layout.height, 400)
         self.assertEqual(tuple(figure.layout.yaxis.range), (0, 180))
 
+    def test_chart_collapses_multiple_city_stations_to_one_actual_and_model_line(self):
+        frame = pd.DataFrame(
+            {
+                "time": pd.to_datetime(
+                    [
+                        "2024-09-05 00:00:00",
+                        "2024-09-05 00:00:00",
+                        "2024-09-05 01:00:00",
+                        "2024-09-05 01:00:00",
+                    ]
+                ),
+                "station_id": [
+                    "FRES",
+                    "FRES_OPENMETEO",
+                    "FRES",
+                    "FRES_OPENMETEO",
+                ],
+                "model_name": ["LightGBM"] * 4,
+                "actual_aqi": [30.0, 50.0, 40.0, 60.0],
+                "predicted_aqi": [32.0, 52.0, 42.0, 62.0],
+            }
+        )
+
+        figure = build_alignment_figure(frame, ["LightGBM"])
+
+        actual = next(trace for trace in figure.data if trace.name == "Actual AQI")
+        prediction = next(trace for trace in figure.data if trace.name == "LightGBM")
+        self.assertEqual(list(actual.y), [40.0, 50.0])
+        self.assertEqual(list(prediction.y), [42.0, 52.0])
+
 
 class DiagnosticsWildfireEventTest(unittest.TestCase):
     def test_load_wildfire_events_filters_by_city_and_date_overlap(self):

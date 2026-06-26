@@ -510,11 +510,31 @@ def load_validation_data(
 
 
 def _actual_history(aligned: pd.DataFrame) -> pd.DataFrame:
-    return (
+    actual = (
         aligned[["time", "station_id", "actual_aqi"]]
-        .dropna(subset=["actual_aqi"])
+        .dropna(subset=["time", "actual_aqi"])
         .drop_duplicates(["time", "station_id"])
-        .sort_values(["time", "station_id"])
+    )
+    if actual.empty:
+        return actual.assign(station_id="City Average")
+    return (
+        actual.groupby("time", as_index=False)["actual_aqi"]
+        .mean()
+        .assign(station_id="City Average")
+        .sort_values("time")
+    )
+
+
+def _model_history(aligned: pd.DataFrame, model_name: str) -> pd.DataFrame:
+    model_rows = aligned[aligned["model_name"].eq(model_name)].dropna(
+        subset=["time", "predicted_aqi"]
+    )
+    if model_rows.empty:
+        return model_rows
+    return (
+        model_rows.groupby("time", as_index=False)["predicted_aqi"]
+        .mean()
+        .sort_values("time")
     )
 
 
@@ -678,9 +698,7 @@ def build_alignment_figure(
     for model_name in tuple(selected_models):
         if model_name not in MODEL_COLORS:
             raise ValueError(f"Unsupported model: {model_name}")
-        model_rows = aligned[aligned["model_name"].eq(model_name)].sort_values(
-            "time"
-        )
+        model_rows = _model_history(aligned, model_name)
         if model_rows.empty:
             continue
         visible_max = max(
