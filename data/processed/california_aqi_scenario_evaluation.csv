@@ -1,99 +1,99 @@
 Configuration,Model,Scenario,Scenario_Status,N,MAE,RMSE,R2_Score
-Short-term Autoregressive (Lag 1-3h),Linear Ridge,Full Test Year 2025,Available,26297,6.3330430214157225,9.725829510834712,0.8650971593228816
-Short-term Autoregressive (Lag 1-3h),Linear Ridge,Non-Event Baseline (AQI <= 100),Available,24806,5.60175197350593,7.995751886930407,0.8293729971839245
-Short-term Autoregressive (Lag 1-3h),Linear Ridge,January 2025 Stress-Test Window,Available,1799,9.358467270044738,14.815077692184936,0.8429806791852155
-Short-term Autoregressive (Lag 1-3h),Linear Ridge,Extreme AQI in Test 2025 (Top 5%),Available,1325,19.474572385351422,25.638593233394722,0.17145768494560376
-Short-term Autoregressive (Lag 1-3h),Linear Ridge,Wildfire Season 2025 (Jul-Sep),Available,6624,6.124991409950715,10.292576296134296,0.8538814942579767
+Short-term Autoregressive (Lag 1-3h),Linear Ridge,Full Test Year 2025,Available,26293,6.32484117618254,9.669691320344926,0.8656674829168826
+Short-term Autoregressive (Lag 1-3h),Linear Ridge,Non-Event Baseline (AQI <= 100),Available,24806,5.604050147584066,7.999060818356476,0.8292317447077957
+Short-term Autoregressive (Lag 1-3h),Linear Ridge,January 2025 Stress-Test Window,Available,1795,9.215589005371163,14.245355653725557,0.8473123958843274
+Short-term Autoregressive (Lag 1-3h),Linear Ridge,Extreme AQI in Test 2025 (Top 5%),Available,1321,19.307438832656228,25.226050231684937,0.1588351507321768
+Short-term Autoregressive (Lag 1-3h),Linear Ridge,Wildfire Season 2025 (Jul-Sep),Available,6624,6.126605870327294,10.298211946418325,0.8537214374910489
 Short-term Autoregressive (Lag 1-3h),Linear Ridge,Source: EPA AQS,Unavailable in test split,0,,,
 Short-term Autoregressive (Lag 1-3h),Linear Ridge,Source: Open-Meteo,Unavailable in test split,0,,,
-Short-term Autoregressive (Lag 1-3h),Random Forest,Full Test Year 2025,Available,26297,6.609599981555988,10.153400291149724,0.8529751290942937
-Short-term Autoregressive (Lag 1-3h),Random Forest,Non-Event Baseline (AQI <= 100),Available,24806,5.86522347518477,8.338134573578165,0.8144474427874924
-Short-term Autoregressive (Lag 1-3h),Random Forest,January 2025 Stress-Test Window,Available,1799,10.04354866817025,16.7173899599758,0.8000680626952895
-Short-term Autoregressive (Lag 1-3h),Random Forest,Extreme AQI in Test 2025 (Top 5%),Available,1325,19.960435716036418,26.835295147951523,0.09230684240620135
-Short-term Autoregressive (Lag 1-3h),Random Forest,Wildfire Season 2025 (Jul-Sep),Available,6624,6.2887435961354505,10.297115402906721,0.8537525870284212
+Short-term Autoregressive (Lag 1-3h),Random Forest,Full Test Year 2025,Available,26293,6.605176000888814,10.122667160306579,0.8527871075797396
+Short-term Autoregressive (Lag 1-3h),Random Forest,Non-Event Baseline (AQI <= 100),Available,24806,5.86757573068932,8.343260961912376,0.8142192126322956
+Short-term Autoregressive (Lag 1-3h),Random Forest,January 2025 Stress-Test Window,Available,1795,9.949188218264094,16.38448830438637,0.798013216692336
+Short-term Autoregressive (Lag 1-3h),Random Forest,Extreme AQI in Test 2025 (Top 5%),Available,1321,19.866058188056154,26.60852367179092,0.06411138982138775
+Short-term Autoregressive (Lag 1-3h),Random Forest,Wildfire Season 2025 (Jul-Sep),Available,6624,6.296430164038809,10.323862925299059,0.8529918231953675
 Short-term Autoregressive (Lag 1-3h),Random Forest,Source: EPA AQS,Unavailable in test split,0,,,
 Short-term Autoregressive (Lag 1-3h),Random Forest,Source: Open-Meteo,Unavailable in test split,0,,,
-Short-term Autoregressive (Lag 1-3h),LightGBM,Full Test Year 2025,Available,26297,6.07783003726424,9.566454676340118,0.8694821753763529
-Short-term Autoregressive (Lag 1-3h),LightGBM,Non-Event Baseline (AQI <= 100),Available,24806,5.426505714173677,7.733185466752712,0.8403951825225803
-Short-term Autoregressive (Lag 1-3h),LightGBM,January 2025 Stress-Test Window,Available,1799,9.304918156709203,16.774535675054157,0.7986988559890262
-Short-term Autoregressive (Lag 1-3h),LightGBM,Extreme AQI in Test 2025 (Top 5%),Available,1325,17.852464185549668,26.022400718946937,0.14646559889228228
-Short-term Autoregressive (Lag 1-3h),LightGBM,Wildfire Season 2025 (Jul-Sep),Available,6624,6.2309957813427195,10.470142785464414,0.8487963618147172
+Short-term Autoregressive (Lag 1-3h),LightGBM,Full Test Year 2025,Available,26293,6.0629998442738025,9.489704338722563,0.8706217433353639
+Short-term Autoregressive (Lag 1-3h),LightGBM,Non-Event Baseline (AQI <= 100),Available,24806,5.428063747751327,7.7394876149541485,0.8401349370966724
+Short-term Autoregressive (Lag 1-3h),LightGBM,January 2025 Stress-Test Window,Available,1795,9.125672003144084,16.1427278499377,0.8039300501691226
+Short-term Autoregressive (Lag 1-3h),LightGBM,Extreme AQI in Test 2025 (Top 5%),Available,1321,17.565527460199622,25.45570256847804,0.14344988156011473
+Short-term Autoregressive (Lag 1-3h),LightGBM,Wildfire Season 2025 (Jul-Sep),Available,6624,6.231618316732248,10.461504957636183,0.8490457437512591
 Short-term Autoregressive (Lag 1-3h),LightGBM,Source: EPA AQS,Unavailable in test split,0,,,
 Short-term Autoregressive (Lag 1-3h),LightGBM,Source: Open-Meteo,Unavailable in test split,0,,,
-Short-term Autoregressive (Lag 1-3h),CatBoost,Full Test Year 2025,Available,26297,6.255573047150334,10.08725525897441,0.8548844969038807
-Short-term Autoregressive (Lag 1-3h),CatBoost,Non-Event Baseline (AQI <= 100),Available,24806,5.455058403296475,7.9473573542118165,0.8314321968842985
-Short-term Autoregressive (Lag 1-3h),CatBoost,January 2025 Stress-Test Window,Available,1799,10.157825552104358,18.09170719029005,0.7658445188770734
-Short-term Autoregressive (Lag 1-3h),CatBoost,Extreme AQI in Test 2025 (Top 5%),Available,1325,20.64811282367365,28.5200018756884,-0.025239685322790084
-Short-term Autoregressive (Lag 1-3h),CatBoost,Wildfire Season 2025 (Jul-Sep),Available,6624,5.995276816342363,10.411684317677643,0.850480093776681
+Short-term Autoregressive (Lag 1-3h),CatBoost,Full Test Year 2025,Available,26293,6.2372983328236895,9.998875121125263,0.8563656808515798
+Short-term Autoregressive (Lag 1-3h),CatBoost,Non-Event Baseline (AQI <= 100),Available,24806,5.447784408407076,7.936749432617672,0.8318818962167525
+Short-term Autoregressive (Lag 1-3h),CatBoost,January 2025 Stress-Test Window,Available,1795,9.916225664652503,17.403654638802603,0.77210326639862
+Short-term Autoregressive (Lag 1-3h),CatBoost,Extreme AQI in Test 2025 (Top 5%),Available,1321,20.460566732738762,27.98546543681935,-0.03525579945875146
+Short-term Autoregressive (Lag 1-3h),CatBoost,Wildfire Season 2025 (Jul-Sep),Available,6624,6.0065894778908575,10.40567985838739,0.8506525014840609
 Short-term Autoregressive (Lag 1-3h),CatBoost,Source: EPA AQS,Unavailable in test split,0,,,
 Short-term Autoregressive (Lag 1-3h),CatBoost,Source: Open-Meteo,Unavailable in test split,0,,,
-Short-term Autoregressive (Lag 1-3h),XGBoost,Full Test Year 2025,Available,26297,5.866126048150052,9.635236770650714,0.867598601440759
-Short-term Autoregressive (Lag 1-3h),XGBoost,Non-Event Baseline (AQI <= 100),Available,24806,5.189597851222299,7.462736789676777,0.8513635266569273
-Short-term Autoregressive (Lag 1-3h),XGBoost,January 2025 Stress-Test Window,Available,1799,9.170104891500909,17.918776214262415,0.7702995113221964
-Short-term Autoregressive (Lag 1-3h),XGBoost,Extreme AQI in Test 2025 (Top 5%),Available,1325,18.14409494689088,27.961165315692767,0.014544895139658398
-Short-term Autoregressive (Lag 1-3h),XGBoost,Wildfire Season 2025 (Jul-Sep),Available,6624,6.322230264245676,11.051342775317586,0.8315437489816613
+Short-term Autoregressive (Lag 1-3h),XGBoost,Full Test Year 2025,Available,26293,5.832116290827674,9.471894582889972,0.871106907653581
+Short-term Autoregressive (Lag 1-3h),XGBoost,Non-Event Baseline (AQI <= 100),Available,24806,5.1739298776099165,7.443633464506928,0.8521235203988659
+Short-term Autoregressive (Lag 1-3h),XGBoost,January 2025 Stress-Test Window,Available,1795,8.902572358218467,17.022079755382823,0.7819869806614119
+Short-term Autoregressive (Lag 1-3h),XGBoost,Extreme AQI in Test 2025 (Top 5%),Available,1321,17.781818347178035,26.953821223308452,0.039663820621142265
+Short-term Autoregressive (Lag 1-3h),XGBoost,Wildfire Season 2025 (Jul-Sep),Available,6624,6.255801630349353,10.871636154006548,0.8369777620411647
 Short-term Autoregressive (Lag 1-3h),XGBoost,Source: EPA AQS,Unavailable in test split,0,,,
 Short-term Autoregressive (Lag 1-3h),XGBoost,Source: Open-Meteo,Unavailable in test split,0,,,
-Short-term Autoregressive (Lag 1-3h),Persistence,Full Test Year 2025,Available,26297,6.517161835580334,10.091640775098476,0.8547582891885492
+Short-term Autoregressive (Lag 1-3h),Persistence,Full Test Year 2025,Available,26293,6.506849162014017,10.048007396455366,0.8549506377988265
 Short-term Autoregressive (Lag 1-3h),Persistence,Non-Event Baseline (AQI <= 100),Available,24806,5.914210854030629,8.795859989881572,0.7935163069194744
-Short-term Autoregressive (Lag 1-3h),Persistence,January 2025 Stress-Test Window,Available,1799,9.552405276349223,14.832544699256639,0.8426102087167437
-Short-term Autoregressive (Lag 1-3h),Persistence,Extreme AQI in Test 2025 (Top 5%),Available,1325,17.200593699472016,23.353471314560807,0.3125688658944906
+Short-term Autoregressive (Lag 1-3h),Persistence,January 2025 Stress-Test Window,Available,1795,9.408109926869503,14.401239087565775,0.8439524664546512
+Short-term Autoregressive (Lag 1-3h),Persistence,Extreme AQI in Test 2025 (Top 5%),Available,1321,17.02768120997648,23.00515032487839,0.30042745904298584
 Short-term Autoregressive (Lag 1-3h),Persistence,Wildfire Season 2025 (Jul-Sep),Available,6624,5.955598032063585,10.09324319099678,0.8594863525750606
 Short-term Autoregressive (Lag 1-3h),Persistence,Source: EPA AQS,Unavailable in test split,0,,,
 Short-term Autoregressive (Lag 1-3h),Persistence,Source: Open-Meteo,Unavailable in test split,0,,,
-Short-term Autoregressive (Lag 1-3h),Climatology,Full Test Year 2025,Available,26297,19.5689307472522,27.705528003206627,-0.09471395059668741
-Short-term Autoregressive (Lag 1-3h),Climatology,Non-Event Baseline (AQI <= 100),Available,24806,16.167802371255874,20.397449518875,-0.11040364224745614
-Short-term Autoregressive (Lag 1-3h),Climatology,January 2025 Stress-Test Window,Available,1799,23.430411589171257,39.4219743273453,-0.11178796726536722
-Short-term Autoregressive (Lag 1-3h),Climatology,Extreme AQI in Test 2025 (Top 5%),Available,1325,79.7167056127856,84.57820683206018,-8.016609386490842
-Short-term Autoregressive (Lag 1-3h),Climatology,Wildfire Season 2025 (Jul-Sep),Available,6624,19.330950534188972,27.724125709527478,-0.06016326361314772
+Short-term Autoregressive (Lag 1-3h),Climatology,Full Test Year 2025,Available,26293,19.36405110506057,27.066211557764014,-0.052472787131760734
+Short-term Autoregressive (Lag 1-3h),Climatology,Non-Event Baseline (AQI <= 100),Available,24806,16.120744598243995,20.172549226728105,-0.08605222974259341
+Short-term Autoregressive (Lag 1-3h),Climatology,January 2025 Stress-Test Window,Available,1795,21.89807301769513,36.94281652559561,-0.026874084689347155
+Short-term Autoregressive (Lag 1-3h),Climatology,Extreme AQI in Test 2025 (Top 5%),Available,1321,76.77670988290855,81.58730940862782,-7.798888736298489
+Short-term Autoregressive (Lag 1-3h),Climatology,Wildfire Season 2025 (Jul-Sep),Available,6624,19.490085952508945,27.628512756400372,-0.052863444619716704
 Short-term Autoregressive (Lag 1-3h),Climatology,Source: EPA AQS,Unavailable in test split,0,,,
 Short-term Autoregressive (Lag 1-3h),Climatology,Source: Open-Meteo,Unavailable in test split,0,,,
-Long-term Forecasting (Lag 24h),Linear Ridge,Full Test Year 2025,Available,26297,13.628100352715531,19.62775905885537,0.45057397578567715
-Long-term Forecasting (Lag 24h),Linear Ridge,Non-Event Baseline (AQI <= 100),Available,24806,11.735642653726321,15.266006733748949,0.3780148114024474
-Long-term Forecasting (Lag 24h),Linear Ridge,January 2025 Stress-Test Window,Available,1799,20.587044084159768,34.45780700391682,0.1505838846497698
-Long-term Forecasting (Lag 24h),Linear Ridge,Extreme AQI in Test 2025 (Top 5%),Available,1325,47.999872757536615,56.63690699202824,-3.04320130886562
-Long-term Forecasting (Lag 24h),Linear Ridge,Wildfire Season 2025 (Jul-Sep),Available,6624,13.398288830749548,19.26056902713786,0.48832374956848934
+Long-term Forecasting (Lag 24h),Linear Ridge,Full Test Year 2025,Available,26224,13.517917331046302,19.386067137060973,0.4600734020654411
+Long-term Forecasting (Lag 24h),Linear Ridge,Non-Event Baseline (AQI <= 100),Available,24756,11.652301208407458,15.094550964651468,0.39265648373336537
+Long-term Forecasting (Lag 24h),Linear Ridge,January 2025 Stress-Test Window,Available,1726,19.52525438095461,33.2412940223054,0.18767194727522507
+Long-term Forecasting (Lag 24h),Linear Ridge,Extreme AQI in Test 2025 (Top 5%),Available,1315,47.66664074197769,56.00350667625206,-2.953098318035226
+Long-term Forecasting (Lag 24h),Linear Ridge,Wildfire Season 2025 (Jul-Sep),Available,6624,13.353883150893068,19.113122114338182,0.4961279118549956
 Long-term Forecasting (Lag 24h),Linear Ridge,Source: EPA AQS,Unavailable in test split,0,,,
 Long-term Forecasting (Lag 24h),Linear Ridge,Source: Open-Meteo,Unavailable in test split,0,,,
-Long-term Forecasting (Lag 24h),Random Forest,Full Test Year 2025,Available,26297,13.94046789809536,19.86697523001017,0.4370999454323301
-Long-term Forecasting (Lag 24h),Random Forest,Non-Event Baseline (AQI <= 100),Available,24806,11.98227293991353,15.467512145690124,0.36148651293590905
-Long-term Forecasting (Lag 24h),Random Forest,January 2025 Stress-Test Window,Available,1799,20.418696724977316,33.759550650157095,0.18466038743283952
-Long-term Forecasting (Lag 24h),Random Forest,Extreme AQI in Test 2025 (Top 5%),Available,1325,49.340577368553504,57.166633345032125,-3.1191873224423174
-Long-term Forecasting (Lag 24h),Random Forest,Wildfire Season 2025 (Jul-Sep),Available,6624,13.197995748302551,18.92389089195474,0.5060557852959144
+Long-term Forecasting (Lag 24h),Random Forest,Full Test Year 2025,Available,26224,13.966531701425078,19.780561922849948,0.43787545764784597
+Long-term Forecasting (Lag 24h),Random Forest,Non-Event Baseline (AQI <= 100),Available,24756,12.055210263269693,15.495051887812467,0.3599998539098028
+Long-term Forecasting (Lag 24h),Random Forest,January 2025 Stress-Test Window,Available,1726,19.890973113034466,33.1820143866432,0.19056663444870625
+Long-term Forecasting (Lag 24h),Random Forest,Extreme AQI in Test 2025 (Top 5%),Available,1315,48.830671279037055,56.611788048568684,-3.039437726334058
+Long-term Forecasting (Lag 24h),Random Forest,Wildfire Season 2025 (Jul-Sep),Available,6624,13.313302067230651,18.950123414894595,0.5046854134341863
 Long-term Forecasting (Lag 24h),Random Forest,Source: EPA AQS,Unavailable in test split,0,,,
 Long-term Forecasting (Lag 24h),Random Forest,Source: Open-Meteo,Unavailable in test split,0,,,
-Long-term Forecasting (Lag 24h),LightGBM,Full Test Year 2025,Available,26297,13.672446441841808,19.49353938609733,0.4580625170366689
-Long-term Forecasting (Lag 24h),LightGBM,Non-Event Baseline (AQI <= 100),Available,24806,11.799671219886658,15.239148324170642,0.380201478513305
-Long-term Forecasting (Lag 24h),LightGBM,January 2025 Stress-Test Window,Available,1799,20.45288988761256,33.5123348272324,0.196557870410341
-Long-term Forecasting (Lag 24h),LightGBM,Extreme AQI in Test 2025 (Top 5%),Available,1325,47.60088940591523,55.823033906909,-2.927834508824965
-Long-term Forecasting (Lag 24h),LightGBM,Wildfire Season 2025 (Jul-Sep),Available,6624,13.13450378557229,19.131791397200757,0.4951430884727529
+Long-term Forecasting (Lag 24h),LightGBM,Full Test Year 2025,Available,26224,13.582801447783167,19.334904197388852,0.4629195471214397
+Long-term Forecasting (Lag 24h),LightGBM,Non-Event Baseline (AQI <= 100),Available,24756,11.723356786875545,15.11381251444913,0.39110548147766855
+Long-term Forecasting (Lag 24h),LightGBM,January 2025 Stress-Test Window,Available,1726,19.499392452648934,32.77575951609275,0.21026545292548116
+Long-term Forecasting (Lag 24h),LightGBM,Extreme AQI in Test 2025 (Top 5%),Available,1315,47.5422825376582,55.530629507701164,-2.886622555587151
+Long-term Forecasting (Lag 24h),LightGBM,Wildfire Season 2025 (Jul-Sep),Available,6624,13.111722446939106,18.98242463848,0.5029954083041615
 Long-term Forecasting (Lag 24h),LightGBM,Source: EPA AQS,Unavailable in test split,0,,,
 Long-term Forecasting (Lag 24h),LightGBM,Source: Open-Meteo,Unavailable in test split,0,,,
-Long-term Forecasting (Lag 24h),CatBoost,Full Test Year 2025,Available,26297,13.74553803055139,20.4220005096696,0.4052090450454854
-Long-term Forecasting (Lag 24h),CatBoost,Non-Event Baseline (AQI <= 100),Available,24806,11.3184055721763,14.581661394231475,0.43252966685605887
-Long-term Forecasting (Lag 24h),CatBoost,January 2025 Stress-Test Window,Available,1799,19.998124194104303,34.25920755463569,0.16034698044969964
-Long-term Forecasting (Lag 24h),CatBoost,Extreme AQI in Test 2025 (Top 5%),Available,1325,57.380133613816554,64.74444443028123,-4.2836169687679035
-Long-term Forecasting (Lag 24h),CatBoost,Wildfire Season 2025 (Jul-Sep),Available,6624,13.702249807195336,21.236024190179958,0.3779812801836986
+Long-term Forecasting (Lag 24h),CatBoost,Full Test Year 2025,Available,26224,13.637608825664673,20.240414153658975,0.4114354685620488
+Long-term Forecasting (Lag 24h),CatBoost,Non-Event Baseline (AQI <= 100),Available,24756,11.260196369808181,14.50475599096853,0.4391911510017916
+Long-term Forecasting (Lag 24h),CatBoost,January 2025 Stress-Test Window,Available,1726,19.230199713620923,33.65043672026715,0.16755218497965496
+Long-term Forecasting (Lag 24h),CatBoost,Extreme AQI in Test 2025 (Top 5%),Available,1315,56.7515435926613,64.14422937739353,-4.185878734031777
+Long-term Forecasting (Lag 24h),CatBoost,Wildfire Season 2025 (Jul-Sep),Available,6624,13.645019985008176,21.11344453494295,0.3851414511843735
 Long-term Forecasting (Lag 24h),CatBoost,Source: EPA AQS,Unavailable in test split,0,,,
 Long-term Forecasting (Lag 24h),CatBoost,Source: Open-Meteo,Unavailable in test split,0,,,
-Long-term Forecasting (Lag 24h),XGBoost,Full Test Year 2025,Available,26297,13.73771880357466,19.439698592592748,0.46105202535667333
-Long-term Forecasting (Lag 24h),XGBoost,Non-Event Baseline (AQI <= 100),Available,24806,11.968093935925973,15.417493709119237,0.36560945226995745
-Long-term Forecasting (Lag 24h),XGBoost,January 2025 Stress-Test Window,Available,1799,20.53139473809173,33.845643641470176,0.1804965564654748
-Long-term Forecasting (Lag 24h),XGBoost,Extreme AQI in Test 2025 (Top 5%),Available,1325,45.88209983561665,54.53824941194745,-2.7491144338574864
-Long-term Forecasting (Lag 24h),XGBoost,Wildfire Season 2025 (Jul-Sep),Available,6624,13.273297165896313,18.94007057185803,0.5052107924984639
+Long-term Forecasting (Lag 24h),XGBoost,Full Test Year 2025,Available,26224,13.636565186064658,19.300712747883413,0.4648173917785666
+Long-term Forecasting (Lag 24h),XGBoost,Non-Event Baseline (AQI <= 100),Available,24756,11.870144404429665,15.292354721175748,0.3766345468574923
+Long-term Forecasting (Lag 24h),XGBoost,January 2025 Stress-Test Window,Available,1726,19.579062197837334,33.01962589384005,0.1984697732405456
+Long-term Forecasting (Lag 24h),XGBoost,Extreme AQI in Test 2025 (Top 5%),Available,1315,46.00858353331196,54.40327188258278,-2.7304155452271934
+Long-term Forecasting (Lag 24h),XGBoost,Wildfire Season 2025 (Jul-Sep),Available,6624,13.379959565170143,19.067352862379146,0.4985382178095453
 Long-term Forecasting (Lag 24h),XGBoost,Source: EPA AQS,Unavailable in test split,0,,,
 Long-term Forecasting (Lag 24h),XGBoost,Source: Open-Meteo,Unavailable in test split,0,,,
-Long-term Forecasting (Lag 24h),Persistence,Full Test Year 2025,Available,26297,16.56164848762706,23.764607485958578,0.19456762717274123
-Long-term Forecasting (Lag 24h),Persistence,Non-Event Baseline (AQI <= 100),Available,24806,15.224325580099046,20.986142560354182,-0.17542353227360352
-Long-term Forecasting (Lag 24h),Persistence,January 2025 Stress-Test Window,Available,1799,24.68101072286922,40.981579204521005,-0.20149676902285374
-Long-term Forecasting (Lag 24h),Persistence,Extreme AQI in Test 2025 (Top 5%),Available,1325,40.540826194427936,53.449166918060946,-2.600876198364311
+Long-term Forecasting (Lag 24h),Persistence,Full Test Year 2025,Available,26224,16.349473362498884,23.140110517508223,0.2307169650220554
+Long-term Forecasting (Lag 24h),Persistence,Non-Event Baseline (AQI <= 100),Available,24756,15.072972997395645,20.487262906304267,-0.11882428522987065
+Long-term Forecasting (Lag 24h),Persistence,January 2025 Stress-Test Window,Available,1726,21.80072854547139,35.79931022631744,0.057839428434069196
+Long-term Forecasting (Lag 24h),Persistence,Extreme AQI in Test 2025 (Top 5%),Available,1315,39.35468515958807,51.74066761197811,-2.374203172915831
 Long-term Forecasting (Lag 24h),Persistence,Wildfire Season 2025 (Jul-Sep),Available,6624,14.182153606153019,19.808027946271693,0.4588227736443491
 Long-term Forecasting (Lag 24h),Persistence,Source: EPA AQS,Unavailable in test split,0,,,
 Long-term Forecasting (Lag 24h),Persistence,Source: Open-Meteo,Unavailable in test split,0,,,
-Long-term Forecasting (Lag 24h),Climatology,Full Test Year 2025,Available,26297,19.18333730003286,26.868419728477207,-0.029560893909223118
-Long-term Forecasting (Lag 24h),Climatology,Non-Event Baseline (AQI <= 100),Available,24806,15.96065956368653,19.999645581991608,-0.06751440159067967
-Long-term Forecasting (Lag 24h),Climatology,January 2025 Stress-Test Window,Available,1799,22.704176166764558,38.42712458378322,-0.05638202945157622
-Long-term Forecasting (Lag 24h),Climatology,Extreme AQI in Test 2025 (Top 5%),Available,1325,76.10756126128655,81.01912102612967,-7.273730368447488
-Long-term Forecasting (Lag 24h),Climatology,Wildfire Season 2025 (Jul-Sep),Available,6624,18.6119072717159,26.53227841806254,0.029029301371862548
+Long-term Forecasting (Lag 24h),Climatology,Full Test Year 2025,Available,26224,20.124986315086435,28.062781573567115,-0.13140144558346245
+Long-term Forecasting (Lag 24h),Climatology,Non-Event Baseline (AQI <= 100),Available,24756,16.83772446808139,21.075753624600093,-0.18402324711075257
+Long-term Forecasting (Lag 24h),Climatology,January 2025 Stress-Test Window,Available,1726,22.353369345356736,37.462488678407226,-0.03173664802244769
+Long-term Forecasting (Lag 24h),Climatology,Extreme AQI in Test 2025 (Top 5%),Available,1315,78.78371811802185,84.07177046002275,-7.9085610340391685
+Long-term Forecasting (Lag 24h),Climatology,Wildfire Season 2025 (Jul-Sep),Available,6624,20.558264214231812,29.326217045940865,-0.18623059572673184
 Long-term Forecasting (Lag 24h),Climatology,Source: EPA AQS,Unavailable in test split,0,,,
 Long-term Forecasting (Lag 24h),Climatology,Source: Open-Meteo,Unavailable in test split,0,,,

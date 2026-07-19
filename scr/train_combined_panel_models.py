@@ -48,10 +48,16 @@ SCENARIO_PATH = os.path.join(OUTPUT_DIR, "california_aqi_scenario_evaluation.csv
 PREDICTION_PATH = os.path.join(OUTPUT_DIR, "california_aqi_model_predictions.csv")
 MODEL_OUTPUT_PATHS = {
     "Short-term Autoregressive (Lag 1-3h)": os.path.join(MODEL_DIR, "lightgbm_nowcast.txt"),
+    "Timeline (Lag 6h)": os.path.join(MODEL_DIR, "lightgbm_forecast6h.txt"),
+    "Timeline (Lag 12h)": os.path.join(MODEL_DIR, "lightgbm_forecast12h.txt"),
+    "Timeline (Lag 18h)": os.path.join(MODEL_DIR, "lightgbm_forecast18h.txt"),
     "Long-term Forecasting (Lag 24h)": os.path.join(MODEL_DIR, "lightgbm_forecast24h.txt"),
 }
 ARTIFACT_DIR_NAMES = {
     "Short-term Autoregressive (Lag 1-3h)": "nowcast_1h",
+    "Timeline (Lag 6h)": "forecast_6h",
+    "Timeline (Lag 12h)": "forecast_12h",
+    "Timeline (Lag 18h)": "forecast_18h",
     "Long-term Forecasting (Lag 24h)": "forecast_24h",
 }
 ARTIFACT_FILENAMES = {
@@ -74,6 +80,30 @@ CONFIGURATIONS = {
         "rolling_windows": [3],
         "spatial_lags": [1, 2, 3],
         "recent_lag_allowed": True,
+    },
+    "Timeline (Lag 6h)": {
+        "horizon": 6,
+        "target_lags": [6, 12, 18],
+        "rolling_shift": 6,
+        "rolling_windows": [6, 24],
+        "spatial_lags": [6, 12, 18],
+        "recent_lag_allowed": False,
+    },
+    "Timeline (Lag 12h)": {
+        "horizon": 12,
+        "target_lags": [12, 24, 36],
+        "rolling_shift": 12,
+        "rolling_windows": [12, 24],
+        "spatial_lags": [12, 24, 36],
+        "recent_lag_allowed": False,
+    },
+    "Timeline (Lag 18h)": {
+        "horizon": 18,
+        "target_lags": [18, 24, 36],
+        "rolling_shift": 18,
+        "rolling_windows": [18, 36],
+        "spatial_lags": [18, 24, 36],
+        "recent_lag_allowed": False,
     },
     "Long-term Forecasting (Lag 24h)": {
         "horizon": 24,
@@ -135,7 +165,22 @@ def add_features(df: pd.DataFrame, configuration: str) -> pd.DataFrame:
     config = CONFIGURATIONS[configuration]
     df = df.copy()
     df["time"] = pd.to_datetime(df["time"], errors="coerce")
+    
+    # Ensure strict continuous 1H frequency for accurate time-series lags and rolling
+    df = df.set_index("time").sort_index()
+    continuous_dfs = []
+    for st, grp in df.groupby("station_id"):
+        grp_cont = grp.resample("1h").asfreq()
+        grp_cont["station_id"] = st
+        continuous_dfs.append(grp_cont)
+    df = pd.concat(continuous_dfs).reset_index()
     df = df.sort_values(["station_id", "time"]).reset_index(drop=True)
+    
+    # Re-derive time components for the newly inserted continuous rows
+    df["hour"] = df["time"].dt.hour
+    df["month"] = df["time"].dt.month
+    df["dayofweek"] = df["time"].dt.dayofweek
+    df["year"] = df["time"].dt.year
 
     df["hour_sin"] = np.sin(2 * np.pi * df["hour"] / 24.0)
     df["hour_cos"] = np.cos(2 * np.pi * df["hour"] / 24.0)
@@ -174,6 +219,9 @@ def add_features(df: pd.DataFrame, configuration: str) -> pd.DataFrame:
         )
 
     df = add_spatial_lag_features(df, lags=config["spatial_lags"])
+
+    # Remove the artificially inserted NaN rows, keeping only valid observations
+    df = df.dropna(subset=[TARGET]).reset_index(drop=True)
 
     return df
 
@@ -810,13 +858,22 @@ if __name__ == "__main__":
         action="store_true",
         help="Train only the production LightGBM models and export models/lightgbm_*.txt.",
     )
+    parser.add_argument(
+        "--timeline",
+        action="store_true",
+        help="Train 6h, 12h, 18h models as well.",
+    )
     args = parser.parse_args()
 
     all_leaderboards = []
     all_scenarios = []
     all_predictions = []
 
-    for configuration in CONFIGURATIONS:
+    configs_to_run = list(CONFIGURATIONS.keys())
+    if not args.timeline:
+        configs_to_run = ["Short-term Autoregressive (Lag 1-3h)", "Long-term Forecasting (Lag 24h)"]
+
+    for configuration in configs_to_run:
         leaderboard, scenario_report, prediction_report = run_configuration(
             configuration,
             lightgbm_only=args.lightgbm_only,

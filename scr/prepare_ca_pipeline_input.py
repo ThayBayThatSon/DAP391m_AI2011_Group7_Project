@@ -87,11 +87,12 @@ def clean_station_group(group: pd.DataFrame) -> pd.DataFrame:
     numeric_cols = [col for col in POLLUTANT_COLUMNS + METEO_COLUMNS if col in group.columns]
 
     # Short-gap interpolation only within each station. This keeps sensor outages
-    # from being artificially filled across long missing intervals.
+    # from being artificially filled across long missing intervals. Forward-fill
+    # only to prevent data leakage from the future into the past.
     group[numeric_cols] = group[numeric_cols].interpolate(
         method="linear",
         limit=MAX_INTERPOLATE_HOURS,
-        limit_direction="both",
+        limit_direction="forward",
     )
     return group
 

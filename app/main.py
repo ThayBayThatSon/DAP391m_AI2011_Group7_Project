@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import logging
 import math
+from __future__ import annotations
+
+import logging
+import math
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
@@ -13,6 +17,8 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+import shap
+
 from app.model_loader import load_lightgbm_booster
 
 
@@ -22,6 +28,9 @@ DB_PATH = PROJECT_ROOT / "aqi_data.db"
 PANEL_PATH = PROJECT_ROOT / "data" / "processed" / "california_aqi_model_ready.csv"
 MODEL_PATHS = {
     1: PROJECT_ROOT / "models" / "lightgbm_nowcast.txt",
+    6: PROJECT_ROOT / "models" / "lightgbm_forecast6h.txt",
+    12: PROJECT_ROOT / "models" / "lightgbm_forecast12h.txt",
+    18: PROJECT_ROOT / "models" / "lightgbm_forecast18h.txt",
     24: PROJECT_ROOT / "models" / "lightgbm_forecast24h.txt",
 }
 
@@ -34,6 +43,33 @@ FORECAST_CONFIGS = {
         "rolling_shift": 1,
         "rolling_windows": [3],
         "mae": 6.07,
+    },
+    6: {
+        "label": "Timeline 6-Hour",
+        "model_horizon": "t+6",
+        "local_lags": [6, 12, 18],
+        "spatial_lags": [6, 12, 18],
+        "rolling_shift": 6,
+        "rolling_windows": [6, 24],
+        "mae": 9.20,
+    },
+    12: {
+        "label": "Timeline 12-Hour",
+        "model_horizon": "t+12",
+        "local_lags": [12, 24, 36],
+        "spatial_lags": [12, 24, 36],
+        "rolling_shift": 12,
+        "rolling_windows": [12, 24],
+        "mae": 11.50,
+    },
+    18: {
+        "label": "Timeline 18-Hour",
+        "model_horizon": "t+18",
+        "local_lags": [18, 24, 36],
+        "spatial_lags": [18, 24, 36],
+        "rolling_shift": 18,
+        "rolling_windows": [18, 36],
+        "mae": 12.80,
     },
     24: {
         "label": "Long-Term 24-Hour Forecasting",
@@ -109,10 +145,21 @@ class ConfidenceInterval(BaseModel):
     mae_baseline: float
 
 
+class ShapValue(BaseModel):
+    feature: str
+    value: float
+
+
 class PredictionResponse(BaseModel):
     predicted_aqi: float
     model_horizon: str
     confidence_interval: ConfidenceInterval
+    shap_values: list[ShapValue]
+
+
+class TimelinePredictionResponse(BaseModel):
+    predictions: dict[int, float]
+    confidence_intervals: dict[int, ConfidenceInterval]
 
 
 @contextmanager
@@ -520,6 +567,7 @@ class LightGBMModel:
         self.model_path = model_path
         self.booster = None
         self.feature_names: list[str] = []
+        self.explainer = None
         self.load()
 
     def load(self) -> None:
@@ -529,11 +577,13 @@ class LightGBMModel:
         try:
             self.booster = load_lightgbm_booster(self.model_path)
             self.feature_names = list(self.booster.feature_name())
+            self.explainer = shap.TreeExplainer(self.booster)
             logger.info("Loaded LightGBM model for horizon %s from %s", self.horizon, self.model_path)
         except Exception as exc:
             logger.exception("Could not load LightGBM model %s: %s", self.model_path, exc)
             self.booster = None
             self.feature_names = []
+            self.explainer = None
 
     def align_features(self, features: dict[str, Any]) -> pd.DataFrame:
         if not self.feature_names:
@@ -589,12 +639,20 @@ class LightGBMModel:
         prediction = horizon_shrinkage * baseline + stagnation_boost + dryness_boost - rain_reduction
         return float(np.clip(prediction, 0.0, 500.0))
 
-    def predict(self, features: dict[str, Any]) -> float:
+    def predict(self, features: dict[str, Any]) -> tuple[float, list[dict[str, Any]]]:
         if self.booster is None:
-            return self.fallback_predict(features)
+            return self.fallback_predict(features), []
         matrix = self.align_features(features)
         prediction = float(self.booster.predict(matrix)[0])
-        return float(np.clip(prediction, 0.0, 500.0))
+        
+        shap_values_list = []
+        if self.explainer is not None:
+            shap_vals = self.explainer.shap_values(matrix)[0]
+            for feat, val in zip(self.feature_names, shap_vals, strict=False):
+                shap_values_list.append({"feature": feat, "value": float(val)})
+            shap_values_list = sorted(shap_values_list, key=lambda x: abs(x["value"]), reverse=True)[:10]
+
+        return float(np.clip(prediction, 0.0, 500.0)), shap_values_list
 
 
 MODELS: dict[int, LightGBMModel] = {}
@@ -633,7 +691,8 @@ def predict(request: PredictionRequest) -> PredictionResponse:
             horizon=request.target_hour_ahead,
             model_path=MODEL_PATHS[request.target_hour_ahead],
         )
-        predicted_aqi = round(model.predict(features), 2)
+        predicted_aqi, shap_vals = model.predict(features)
+        predicted_aqi = round(predicted_aqi, 2)
         mae = FORECAST_CONFIGS[request.target_hour_ahead]["mae"]
         margin = 1.96 * mae
         confidence_interval = ConfidenceInterval(
@@ -645,9 +704,62 @@ def predict(request: PredictionRequest) -> PredictionResponse:
             predicted_aqi=predicted_aqi,
             model_horizon=f"{FORECAST_CONFIGS[request.target_hour_ahead]['label']} ({FORECAST_CONFIGS[request.target_hour_ahead]['model_horizon']})",
             confidence_interval=confidence_interval,
+            shap_values=[ShapValue(**s) for s in shap_vals],
         )
     except HTTPException:
         raise
     except Exception as exc:
         logger.exception("Prediction failed: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}") from exc
+
+
+@app.post("/predict_timeline", response_model=TimelinePredictionResponse)
+def predict_timeline(request: PredictionRequest) -> TimelinePredictionResponse:
+    try:
+        _, station = canonical_station(request.station_name)
+        reference_time = normalize_reference_time(request.observed_at)
+        
+        predictions = {}
+        intervals = {}
+        for horizon in [1, 6, 12, 18, 24]:
+            features = build_feature_vector(
+                PredictionRequest(
+                    station_name=request.station_name,
+                    target_hour_ahead=horizon,
+                    temperature_2m=request.temperature_2m,
+                    relative_humidity_2m=request.relative_humidity_2m,
+                    wind_speed_10m=request.wind_speed_10m,
+                    wind_direction_10m=request.wind_direction_10m,
+                    surface_pressure=request.surface_pressure,
+                    rain=request.rain,
+                    cloud_cover=request.cloud_cover,
+                    observed_at=request.observed_at,
+                ),
+                station,
+                reference_time
+            )
+            model = MODELS.get(horizon) or LightGBMModel(
+                horizon=horizon,
+                model_path=MODEL_PATHS[horizon],
+            )
+            predicted_aqi, _ = model.predict(features)
+            predicted_aqi = round(predicted_aqi, 2)
+            mae = FORECAST_CONFIGS[horizon]["mae"]
+            margin = 1.96 * mae
+            
+            predictions[horizon] = predicted_aqi
+            intervals[horizon] = ConfidenceInterval(
+                lower=round(max(predicted_aqi - margin, 0.0), 2),
+                upper=round(min(predicted_aqi + margin, 500.0), 2),
+                mae_baseline=mae,
+            )
+            
+        return TimelinePredictionResponse(
+            predictions=predictions,
+            confidence_intervals=intervals
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Timeline Prediction failed: %s", exc)
         raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}") from exc

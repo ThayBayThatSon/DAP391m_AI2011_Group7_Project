@@ -14,6 +14,9 @@ from typing import Any
 import pandas as pd
 import requests
 import streamlit as st
+import pydeck as pdk
+import plotly.graph_objects as go
+import plotly.express as px
 
 
 APP_DIR = Path(__file__).resolve().parent
@@ -192,6 +195,44 @@ def call_prediction_api(station_name: str, horizon: int, observed_at: datetime, 
     raise RuntimeError("Prediction API request failed before receiving a response.")
 
 
+def call_prediction_timeline_api(station_name: str, observed_at: datetime, weather: dict[str, float]) -> dict[str, Any]:
+    payload = {
+        "station_name": station_name,
+        "target_hour_ahead": 24,  # Not used by timeline endpoint but required by schema
+        "observed_at": observed_at.isoformat(),
+        **weather,
+    }
+
+    if not USE_REMOTE_API:
+        if PREDICTION_ENGINE is None:
+            raise RuntimeError("Local prediction engine is not initialized.")
+        request = PREDICTION_ENGINE.PredictionRequest(**payload)
+        response = PREDICTION_ENGINE.predict_timeline(request)
+        if hasattr(response, "model_dump"):
+            return response.model_dump()
+        return response.dict()
+
+    last_error: requests.HTTPError | None = None
+    for attempt in range(1, PREDICTION_RETRY_ATTEMPTS + 1):
+        response = PREDICTION_API_SESSION.post(
+            f"{API_BASE_URL.rstrip('/')}/predict_timeline",
+            json=payload,
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+        try:
+            response.raise_for_status()
+            return response.json()
+        except requests.HTTPError as exc:
+            last_error = exc
+            if response.status_code not in PREDICTION_RETRY_STATUS_CODES or attempt == PREDICTION_RETRY_ATTEMPTS:
+                raise
+            time.sleep(min(2 ** (attempt - 1), 4))
+
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("Timeline Prediction API request failed before receiving a response.")
+
+
 def vpd_kpa(temperature_c: float, relative_humidity_pct: float) -> float:
     saturation_vapor_pressure = 0.6108 * math.exp((17.27 * temperature_c) / (temperature_c + 237.3))
     actual_vapor_pressure = (relative_humidity_pct / 100.0) * saturation_vapor_pressure
@@ -354,6 +395,32 @@ def render_live_forecast_content(
         current_aqi=current_aqi.value if current_aqi.is_current else None,
         current_is_live=current_aqi.is_current,
     )
+    st.plotly_chart(
+        figure,
+        width="stretch",
+        config={"displaylogo": False, "displayModeBar": False},
+    )
+
+    with st.expander("Explain Prediction (SHAP)", expanded=False):
+        shap_values = prediction.get("shap_values", [])
+        if shap_values:
+            shap_df = pd.DataFrame(shap_values)
+            shap_df["color"] = shap_df["value"].apply(lambda x: "Increase AQI" if x > 0 else "Decrease AQI")
+            fig = px.bar(
+                shap_df, 
+                x="value", 
+                y="feature", 
+                orientation="h", 
+                color="color",
+                color_discrete_map={"Increase AQI": "#ef4444", "Decrease AQI": "#22c55e"},
+                title="Top 10 Feature Contributions to AQI",
+                labels={"value": "SHAP Value (Impact on AQI)", "feature": "Feature"},
+            )
+            fig.update_layout(yaxis={'categoryorder':'total ascending'})
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("SHAP explanations are not available for this prediction.")
+
     st.markdown(
         (
             '<div class="forecast-summary">'
@@ -362,11 +429,6 @@ def render_live_forecast_content(
             "</div>"
         ),
         unsafe_allow_html=True,
-    )
-    st.plotly_chart(
-        figure,
-        width="stretch",
-        config={"displaylogo": False, "displayModeBar": False},
     )
 
 
@@ -817,21 +879,56 @@ with live_tab:
             format_func=lambda value: "1 Hour" if value == 1 else "24 Hours",
             key="live_forecast_horizon",
         )
-        station_frame = pd.DataFrame(
-            [
-                {
-                    "lat": STATIONS[station_name]["lat"],
-                    "lon": STATIONS[station_name]["lon"],
-                }
-            ]
+        st.markdown("### Spatial AQI Heatmap")
+        
+        # Prepare data for PyDeck heatmap
+        heatmap_data = []
+        for s_name, s_info in STATIONS.items():
+            curr = fetch_current_aqi(s_name)
+            aqi_val = curr.value if curr.value is not None else 50.0 # Default fallback
+            heatmap_data.append({
+                "name": s_name,
+                "lat": s_info["lat"],
+                "lon": s_info["lon"],
+                "weight": aqi_val,
+                "color": [255, max(0, 255 - int(aqi_val)), 0, 160] # Simple color mapping
+            })
+        
+        heatmap_df = pd.DataFrame(heatmap_data)
+        
+        view_state = pdk.ViewState(
+            latitude=36.0,
+            longitude=-119.5,
+            zoom=5,
+            pitch=30,
         )
-        st.map(
-            station_frame,
-            latitude="lat",
-            longitude="lon",
-            zoom=8,
-            width="stretch",
+        
+        layer = pdk.Layer(
+            "HeatmapLayer",
+            data=heatmap_df,
+            get_position=["lon", "lat"],
+            get_weight="weight",
+            radiusPixels=60,
+            intensity=1.5,
+            threshold=0.1,
         )
+        
+        scatter_layer = pdk.Layer(
+            "ScatterplotLayer",
+            data=heatmap_df,
+            get_position=["lon", "lat"],
+            get_color="color",
+            get_radius=20000,
+            pickable=True,
+        )
+        
+        r = pdk.Deck(
+            layers=[layer, scatter_layer],
+            initial_view_state=view_state,
+            tooltip={"text": "{name}\nAQI: {weight}"},
+            map_style="mapbox://styles/mapbox/dark-v10",
+        )
+        st.pydeck_chart(r)
 
     try:
         with right_panel:
@@ -848,6 +945,11 @@ with live_tab:
                     observed_at,
                     weather,
                 )
+                timeline_prediction = call_prediction_timeline_api(
+                    station_name,
+                    observed_at,
+                    weather,
+                )
             render_live_forecast_content(
                 observed_at,
                 weather,
@@ -856,6 +958,34 @@ with live_tab:
                 horizon,
                 vpd,
             )
+            
+            with st.expander("24-Hour Forecast Timeline", expanded=True):
+                preds = timeline_prediction["predictions"]
+                horizons = sorted(int(k) for k in preds.keys())
+                vals = [preds[str(h)] for h in horizons]
+                
+                # Add current time as hour 0
+                if current_aqi.value is not None:
+                    horizons = [0] + horizons
+                    vals = [current_aqi.value] + vals
+                
+                timeline_df = pd.DataFrame({
+                    "Horizon (Hours Ahead)": horizons,
+                    "Predicted AQI": vals
+                })
+                fig = px.line(
+                    timeline_df, 
+                    x="Horizon (Hours Ahead)", 
+                    y="Predicted AQI", 
+                    markers=True,
+                    title=f"AQI Trend Forecast for {station_name}"
+                )
+                fig.update_layout(yaxis_title="AQI", xaxis_title="Hours from now")
+                fig.add_hrect(y0=0, y1=50, fillcolor="green", opacity=0.1, layer="below", line_width=0)
+                fig.add_hrect(y0=50, y1=100, fillcolor="yellow", opacity=0.1, layer="below", line_width=0)
+                fig.add_hrect(y0=100, y1=150, fillcolor="orange", opacity=0.1, layer="below", line_width=0)
+                fig.add_hrect(y0=150, y1=500, fillcolor="red", opacity=0.1, layer="below", line_width=0)
+                st.plotly_chart(fig, use_container_width=True)
     except requests.exceptions.ConnectionError:
         with right_panel:
             st.error(

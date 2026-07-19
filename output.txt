@@ -1,0 +1,35 @@
+CÁC ĐIỂM CẦN SỬA
+Bài: Comparative US AQI Time Series Forecasting in California with Extreme-Event and Climate-Context Evaluation. DAP391m, Group 7. Ta Nguyen Anh Minh, Trinh Quoc Sang.
+
+1. Vấn đề 
+Bài ghi: LightGBM là model tốt nhất ở cả hai cấu hình, R² 0.8691 cho nowcasting và 0.4605 cho 24 giờ. Câu này nằm ở tóm tắt, mục 6.3 và mục 10, và là kết luận chính của bài.
+Nhưng con số trong Bảng 2, 3, 4 của bài không phải số trong repo. Các bảng đó lấy từ notebook Model Report.ipynb (cell 10 và 14), là một lần chạy cũ. Còn file california_aqi_model_leaderboard.csv trong data/processed, tức lần chạy hiện tại của train_combined_panel_models.py, cho số khác. Ở phần long-term, đối chiếu như sau:
+Xếp hạng long-term trong bài: LightGBM > Ridge > XGBoost > CatBoost > Random Forest. Xếp hạng theo CSV shipped: XGBoost > LightGBM > Ridge > Random Forest > CatBoost. Model vô địch đổi, và mọi dòng đều lệch.
+Nghĩa là câu trung tâm của bài, LightGBM thắng cả hai cấu hình, không đúng với dữ liệu đang nộp kèm. Trên chính CSV trong repo, long-term thuộc về XGBoost. Ai chạy lại train_combined_panel_models.py hôm nay sẽ ra số của CSV, không ra số của bài. Đây là thứ người phản biện tìm thấy đầu tiên khi mở file leaderboard.
+Phần short-term đỡ hơn nhưng vẫn lệch ở hai dòng đầu. Bảng 2 ghi LightGBM 0.8691 và XGBoost 0.8676, trong khi leaderboard CSV là 0.8694 và 0.8681. Ba dòng còn lại, Ridge 0.8651, CatBoost 0.8549, Random Forest 0.8530, thì khớp. Dòng LightGBM 0.8691 của bài đúng bằng số của script ablation, không phải leaderboard. Tức là ngay trong short-term, bảng đã trộn số của hai script.
+2. Thí nghiệm và baseline nên chạy thêm
+Bài có năm model và hai cấu hình, nhưng thiếu đúng cái baseline mà một bài forecasting phải có. Bổ sung mấy thí nghiệm sau thì các câu hỏi mới có câu trả lời sạch.
+Baseline bắt buộc
+Một bài so sánh model forecasting mà không có baseline naive thì không có mốc để nói R² 0.87 hay 0.46 là tốt hay tệ. Ba mốc dưới đây rẻ và bắt buộc.
+3. Nâng cấp bài
+Vấn đề 
+Bài quảng bá là panel gộp EPA AQS cộng Open-Meteo cho Fresno, Los Angeles, San Jose. Nhưng cách chia theo năm vô tình biến nó thành một bài về dịch chuyển nguồn dữ liệu, mà bài chưa nói ra, đây là chỗ có một đóng góp thật.
+Thí nghiệm nên làm
+Báo cáo lại toàn bộ metric test 2025 tách theo nguồn: một cột EPA, một cột Open-Meteo. Vì test gần như toàn Open-Meteo nên đây không phải việc thêm, đây là mô tả trung thực cái mà con số hiện tại đang đo. Rồi viết một đoạn ở Threats to Validity nói rõ: validation là EPA, test là Open-Meteo, và điều đó nghĩa là gì cho khái quát hoá.
+
+4. Các điểm cần sửa
+Cột Ưu tiên: 1 làm ngay, 2 làm khi chạy lại, 3 làm cuối.
+4.1 Hình ảnh
+4.2 Bảng biểu
+Chi tiết dòng long-term của Bảng 4, bài so với CSV scenario:
+4.3 Thực nghiệm
+4.4 Cách viết
+4.5 Tài liệu tham khảo
+Phần này của bài đang tốt, ghi nhận: references.bib có 11 mục và cả 11 đều được trích trong thân bài. Không có bibitem trang trí. Đây là điểm sáng, khác với nhiều bài sinh viên, có hai gợi ý nhỏ để nâng cấp paper.
+Cần làm ngay
+1. Chọn một nguồn dữ liệu, chạy lại train_combined_panel_models.py, sinh lại leaderboard, scenario, predictions, ablation, leakage-audit trong cùng một lần chạy. Rồi Restart and Run All Model Report.ipynb trên đúng các CSV đó. Rồi mới điền lại mọi con số trong main.tex. Chưa xong việc này thì bài, notebook và CSV đang kể ba câu chuyện khác nhau, và mọi sửa khác chỉ tạo câu chuyện thứ tư.
+2. Sửa câu vô địch long-term, trên dữ liệu đang nộp kèm, XGBoost thắng long-term chứ không phải LightGBM. Đây là thứ người phản biện tìm thấy đầu tiên. Hoặc số phải khớp CSV, hoặc câu phải đổi theo CSV.
+3. Thêm dòng persistence baseline vào cả hai bảng. Đó là mốc mà một bài forecasting bắt buộc phải có, và hiện nó đang không nằm trong bản thảo.
+Một quy tắc để không lặp lại
+Gần như mọi lỗi trong tài liệu này cùng một hình dạng: con số đúng ở một lần chạy trước, pipeline đổi, còn câu văn và bảng thì không đổi. Đó không phải lỗ hổng kiến thức, đó là lỗ hổng quy trình. Ba file CSV là ba lần chạy, notebook là lần thứ tư, hình lại lấy từ một lần khác nữa.
+Cách chặn: ở cuối train script, xuất mọi con số ra một file claims.json. Ở cuối notebook, đọc claims.json rồi assert từng số đang viết trong main.tex bằng đúng số vừa sinh. Số nào lệch thì dừng ngay và nói rõ lệch chỗ nào, thay vì để người chấm phát hiện. Với bài này, một assert rằng dòng LightGBM của leaderboard bằng dòng LightGBM của bảng ablation đã đủ bắt được toàn bộ mục 1 và mục 4.2.

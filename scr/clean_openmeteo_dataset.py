@@ -76,10 +76,10 @@ def clean_openmeteo_dataset(
     if meteo_cols:
         if "station_id" in clean.columns:
             clean[meteo_cols] = clean.groupby("station_id", group_keys=False)[meteo_cols].apply(
-                lambda group: group.interpolate(method="linear", limit_direction="both")
+                lambda group: group.interpolate(method="linear", limit_direction="forward")
             )
         else:
-            clean[meteo_cols] = clean[meteo_cols].interpolate(method="linear", limit_direction="both")
+            clean[meteo_cols] = clean[meteo_cols].interpolate(method="linear", limit_direction="forward")
 
     clean.to_csv(clean_file, index=False)
 
