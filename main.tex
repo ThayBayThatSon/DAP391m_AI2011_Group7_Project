@@ -35,7 +35,7 @@
 \maketitle
 
 \begin{abstract}
-This paper presents a rigorous hourly US AQI forecasting benchmark in California using a merged panel dataset of 181,122 observations from 2018--2025. The panel combines U.S. EPA Air Quality System observations and Open-Meteo supplemental records for Fresno, Los Angeles, and San Jose, with \texttt{target\_aqi} defined as a PM2.5-derived AQI target. Five tabular regressors are evaluated: Linear Ridge, Random Forest, LightGBM, CatBoost, and XGBoost. The experimental design adopts a climate-context-aware temporal split that reserves the extreme 2020 season for validation and uses 2025 as an independent test year. Two operational configurations are assessed: short-term nowcasting with 1--3 hour AQI lags and strict 24-hour-ahead forecasting that hides local AQI information from $t-1$ to $t-23$. LightGBM provides the best benchmark performance among the tested models, achieving an $R^2$ of 0.8691 in the nowcasting setting and 0.4605 at the 24-hour horizon. Feature ablations show that engineered vapor pressure deficit (VPD) and spatial AQI lags have modest standalone effects on global metrics, while the extreme-event analysis reveals distinct temporal clustering during high-pollution episodes without external causal smoke verification.
+This paper presents a rigorous hourly US AQI forecasting benchmark in California using a merged panel dataset of 181,122 observations from 2018--2025. The panel combines U.S. EPA Air Quality System observations and Open-Meteo supplemental records for Fresno, Los Angeles, and San Jose, with \texttt{target\_aqi} defined as a PM2.5-derived AQI target. Five tabular regressors (Linear Ridge, Random Forest, LightGBM, CatBoost, and XGBoost) are evaluated alongside two naive baselines (Persistence and Climatology). The experimental design adopts a climate-context-aware temporal split that reserves the extreme 2020 season for validation and uses 2025 as an independent test year. Two operational configurations are assessed: short-term nowcasting with 1--3 hour AQI lags and strict 24-hour-ahead forecasting that hides local AQI information from $t-1$ to $t-23$. LightGBM provides the best short-term benchmark performance among the tested models, achieving an $R^2$ of 0.8695, while XGBoost leads the 24-hour horizon with an $R^2$ of 0.4611. Feature ablations show that engineered vapor pressure deficit (VPD) and spatial AQI lags have modest standalone effects on global metrics, while the extreme-event analysis reveals distinct temporal clustering during high-pollution episodes without external causal smoke verification.
 \end{abstract}
 
 \noindent\textbf{Keywords:} US AQI forecasting, PM2.5, California, time-series regression, climate-context evaluation, vapor pressure deficit, spatial lag, LightGBM, extreme-event analysis.
@@ -183,7 +183,13 @@ Because lagged features can cross partition boundaries, the pipeline applies a c
 The leakage audit also confirms that future-like feature names and current PM2.5/PM10 proxy variables are absent from the model feature matrix.
 
 \subsection{Models and Metrics}
-Five models are evaluated: Linear Ridge, Random Forest, LightGBM, CatBoost, and XGBoost. Linear Ridge provides a regularized linear baseline. Random Forest represents bagging-based nonlinear learning. LightGBM, CatBoost, and XGBoost represent gradient-boosted decision-tree families. CatBoost receives categorical station/source identifiers natively; the other models use train-only preprocessing for categorical encoding and scaling where applicable.
+Five machine learning models are evaluated: Linear Ridge, Random Forest, LightGBM, CatBoost, and XGBoost. Linear Ridge provides a regularized linear baseline. Random Forest represents bagging-based nonlinear learning. LightGBM, CatBoost, and XGBoost represent gradient-boosted decision-tree families. CatBoost receives categorical station/source identifiers natively; the other models use train-only preprocessing for categorical encoding and scaling where applicable.
+
+Additionally, two naive operational baselines are included to ground the results:
+\begin{itemize}
+    \item \textbf{Persistence}: Predicts the AQI will remain exactly the same as the most recent available observation (e.g., $t-1$ for short-term nowcasting, and $t-24$ for long-term forecasting).
+    \item \textbf{Climatology}: Predicts the historical mean AQI for a given hour-of-day and month, learned from the training set.
+\end{itemize}
 
 Performance is reported with mean absolute error (MAE), root mean squared error (RMSE), and coefficient of determination ($R^2$):
 \begin{equation}
@@ -212,17 +218,19 @@ The 2025 test-year leaderboard shows a clear difference between near-term and 24
 \toprule
 Model & MAE & RMSE & $R^2$ \\
 \midrule
-LightGBM & 6.0716 & 9.5788 & 0.8691 \\
+LightGBM & 6.0778 & 9.5665 & 0.8695 \\
 XGBoost & 5.8661 & 9.6352 & 0.8676 \\
 Linear Ridge & 6.3330 & 9.7258 & 0.8651 \\
 CatBoost & 6.2556 & 10.0873 & 0.8549 \\
+Persistence & 6.5172 & 10.0916 & 0.8548 \\
 Random Forest & 6.6096 & 10.1534 & 0.8530 \\
+Climatology & 19.5689 & 27.7055 & -0.0947 \\
 \bottomrule
 \end{tabular}
 \end{table}
 \FloatBarrier
 
-LightGBM obtains the highest short-term $R^2$ at 0.8691, while XGBoost obtains the lowest MAE. All models exceed 0.85 in $R^2$, indicating that recent AQI history is highly informative for near-term nowcasting. This result should be interpreted as evidence of strong temporal persistence rather than as evidence that the models fully understand atmospheric mechanisms. The leakage audit reports a 0.927 correlation between the 2025 target and the one-hour AQI lag, which explains why even Linear Ridge remains competitive.
+LightGBM obtains the highest short-term $R^2$ at 0.8695, while XGBoost obtains the lowest MAE. All models, including the Persistence baseline, exceed 0.85 in $R^2$, indicating that recent AQI history is highly informative for near-term nowcasting. The fact that the naive Persistence model performs better than Random Forest and nearly matches CatBoost emphasizes the extreme strength of short-term autocorrelation. This result should be interpreted as evidence of strong temporal persistence rather than as evidence that the complex models fully understand atmospheric mechanisms. The leakage audit reports a 0.927 correlation between the 2025 target and the one-hour AQI lag, which explains why even Linear Ridge and Persistence remain highly competitive. Climatology, however, fails completely in this task as it cannot capture short-term transient pollution spikes.
 
 \subsection{Long-Term 24-Hour Forecasting}
 \begin{table}[H]
@@ -233,17 +241,19 @@ LightGBM obtains the highest short-term $R^2$ at 0.8691, while XGBoost obtains t
 \toprule
 Model & MAE & RMSE & $R^2$ \\
 \midrule
-LightGBM & 13.5546 & 19.4498 & 0.4605 \\
-Linear Ridge & 13.5542 & 19.4738 & 0.4592 \\
-XGBoost & 13.6759 & 19.5251 & 0.4563 \\
-CatBoost & 13.6208 & 20.3258 & 0.4108 \\
-Random Forest & 14.2465 & 20.6329 & 0.3929 \\
+XGBoost & 13.7377 & 19.4397 & 0.4611 \\
+LightGBM & 13.6724 & 19.4935 & 0.4581 \\
+Linear Ridge & 13.6281 & 19.6278 & 0.4506 \\
+Random Forest & 13.9405 & 19.8670 & 0.4371 \\
+CatBoost & 13.7455 & 20.4220 & 0.4052 \\
+Persistence & 16.5616 & 23.7646 & 0.1946 \\
+Climatology & 19.1833 & 26.8684 & -0.0296 \\
 \bottomrule
 \end{tabular}
 \end{table}
 \FloatBarrier
 
-The long-term task is harder because local AQI observations from $t-1$ to $t-23$ are excluded. LightGBM again achieves the highest $R^2$, but its advantage over Linear Ridge and XGBoost is small. This suggests that 24-hour AQI prediction depends on smoother day-prior structure, seasonal timing, and meteorological context, while abrupt upper-tail events remain difficult to anticipate from the available tabular features alone.
+The long-term task is significantly harder because local AQI observations from $t-1$ to $t-23$ are excluded. XGBoost achieves the highest $R^2$ (0.4611), but its advantage over LightGBM and Linear Ridge is small. Unlike the short-term task, the Persistence baseline collapses to an $R^2$ of 0.1946, demonstrating that AQI conditions change considerably over 24 hours. The models must therefore rely on smoother day-prior structure, seasonal timing, spatial lags, and meteorological context to outperform Persistence. Climatology again produces negative $R^2$, indicating that using long-term historical means is worse than simply predicting the global mean. Abrupt upper-tail events remain difficult to anticipate from the available tabular features alone.
 
 \subsection{Extreme-Event and Climate-Context Interpretation}
 Global test-year metrics do not fully describe operational forecasting risk because AQI errors are not equally important across health categories and climate contexts. Fig.~\ref{fig:aqi-category-timeline} therefore provides an EDA view of the daily AQI trajectory colored by U.S. AQI category. Most daily observations fall in the Good and Moderate ranges, but the figure also shows episodic transitions into Unhealthy, Very Unhealthy, and occasional Hazardous conditions. These intermittent upper-tail periods motivate scenario-specific reporting alongside the global leaderboard.
@@ -269,23 +279,23 @@ Table~\ref{tab:scenario-context-results} reports the best model for each scenari
 \toprule
 Configuration & Scenario slice & Best model & $N$ & MAE & RMSE & $R^2$ \\
 \midrule
-Short-term & Full 2025 test year & LightGBM & 26297 & 6.0716 & 9.5788 & 0.8691 \\
+Short-term & Full 2025 test year & LightGBM & 26297 & 6.0778 & 9.5665 & 0.8695 \\
 Short-term & Non-event baseline (AQI $\leq 100$) & XGBoost & 24806 & 5.1896 & 7.4627 & 0.8514 \\
 Short-term & January 2025 Winter Extreme-AQI Window & Linear Ridge & 1799 & 9.3585 & 14.8151 & 0.8430 \\
-Short-term & Extreme AQI in 2025 (top 5\%) & Linear Ridge & 1325 & 19.4746 & 25.6386 & 0.1715 \\
-Short-term & July--September 2025 wildfire season & Linear Ridge & 6624 & 6.1250 & 10.2926 & 0.8539 \\
-Long-term & Full 2025 test year & LightGBM & 26297 & 13.5546 & 19.4498 & 0.4605 \\
-Long-term & Non-event baseline (AQI $\leq 100$) & CatBoost & 24806 & 11.2581 & 14.6878 & 0.4242 \\
-Long-term & January 2025 Winter Extreme-AQI Window & LightGBM & 1799 & 19.9117 & 32.8818 & 0.2265 \\
-Long-term & Extreme AQI in 2025 (top 5\%) & LightGBM & 1325 & 45.6488 & 54.8257 & -2.7887 \\
-Long-term & July--September 2025 wildfire season & Linear Ridge & 6624 & 13.1165 & 18.9501 & 0.5047 \\
+Short-term & Extreme AQI in 2025 (top 5\%) & Persistence & 1325 & 17.2006 & 23.3535 & 0.3126 \\
+Short-term & July--September 2025 wildfire season & Persistence & 6624 & 5.9556 & 10.0932 & 0.8595 \\
+Long-term & Full 2025 test year & XGBoost & 26297 & 13.7377 & 19.4397 & 0.4611 \\
+Long-term & Non-event baseline (AQI $\leq 100$) & CatBoost & 24806 & 11.3184 & 14.5817 & 0.4325 \\
+Long-term & January 2025 Winter Extreme-AQI Window & LightGBM & 1799 & 20.4529 & 33.5123 & 0.1966 \\
+Long-term & Extreme AQI in 2025 (top 5\%) & Persistence & 1325 & 40.5408 & 53.4492 & -2.6009 \\
+Long-term & July--September 2025 wildfire season & Random Forest & 6624 & 13.1980 & 18.9239 & 0.5061 \\
 \bottomrule
 \end{tabular}%
 }
 \end{table}
 \FloatBarrier
 
-The table clarifies three patterns. First, short-term nowcasting remains strong for the full year, the non-event baseline, the January winter window, and the July--September seasonal slice because recent AQI persistence is still available. Second, the top-5\% AQI slice is much harder even in the short-term setting, with the best $R^2$ falling to 0.1715. Third, the 24-hour top-tail scenario produces negative $R^2$, meaning that the selected model performs worse than a scenario-specific mean predictor on this restricted subset. This does not contradict the global leaderboard; rather, it shows that rare upper-tail AQI behavior is not sufficiently represented by weather, VPD, spatial lags, and day-prior AQI alone.
+The table clarifies three patterns. First, short-term nowcasting remains strong for the full year, the non-event baseline, the January winter window, and the July--September seasonal slice because recent AQI persistence is still available. Notably, the Persistence baseline emerges as the \emph{best} performer in the short-term Extreme AQI (top 5\%) and Wildfire Season slices, further underscoring that machine learning models struggle to reliably learn complex atmospheric drivers of extremes beyond simply copying the most recent observation. Second, the top-5\% AQI slice is much harder even in the short-term setting, with the best $R^2$ falling to 0.3126. Third, the 24-hour top-tail scenario produces negative $R^2$ across all models, with Persistence being the ``least bad'' at -2.6009. This means that even the best models perform worse than a scenario-specific mean predictor on this restricted subset. This does not contradict the global leaderboard; rather, it shows that rare upper-tail AQI behavior is not sufficiently represented by weather, VPD, spatial lags, and day-prior AQI alone.
 
 \subsection{Prediction Diagnostics}
 The predicted-versus-actual diagnostic for LightGBM confirms the main quantitative pattern. The model tracks central AQI ranges well, especially in the short-term setting, but high-AQI peaks are more dispersed and harder to reproduce accurately. This supports the need for explicit extreme-event analysis and for future event-aware features.
@@ -310,12 +320,12 @@ A focused LightGBM ablation study tests whether VPD and spatial lag features pro
 \toprule
 Configuration & Feature set & Features & MAE & RMSE & $R^2$ & $\Delta$MAE & $\Delta R^2$ \\
 \midrule
-Short-term & Full feature set & 47 & 6.0716 & 9.5788 & 0.8691 & -- & -- \\
-Short-term & Without VPD & 46 & 6.0772 & 9.5953 & 0.8687 & 0.0056 & -0.0005 \\
-Short-term & Without spatial lags & 32 & 6.0558 & 9.4794 & 0.8718 & -0.0158 & 0.0027 \\
-Long-term & Full feature set & 62 & 13.5546 & 19.4498 & 0.4605 & -- & -- \\
-Long-term & Without VPD & 61 & 13.5309 & 19.4410 & 0.4610 & -0.0237 & 0.0005 \\
-Long-term & Without spatial lags & 37 & 13.6660 & 19.4500 & 0.4605 & 0.1114 & 0.0000 \\
+Short-term & Full feature set & 47 & 6.0778 & 9.5665 & 0.8695 & -- & -- \\
+Short-term & Without VPD & 46 & 6.0852 & 9.5965 & 0.8687 & 0.0074 & -0.0008 \\
+Short-term & Without spatial lags & 32 & 6.1663 & 9.5742 & 0.8693 & 0.0884 & -0.0002 \\
+Long-term & Full feature set & 49 & 13.6724 & 19.4935 & 0.4581 & -- & -- \\
+Long-term & Without VPD & 48 & 13.6677 & 19.4654 & 0.4596 & -0.0048 & 0.0016 \\
+Long-term & Without spatial lags & 34 & 13.6520 & 19.3601 & 0.4655 & -0.0205 & 0.0074 \\
 \bottomrule
 \end{tabular}%
 }
@@ -345,12 +355,12 @@ Using this definition, the dataset contains 1,802 extreme hourly records, approx
 The heatmap indicates temporal clustering rather than uniform random occurrence. The concentration in 2020 and in late-summer to autumn months is consistent with a wildfire-season context, but this paper does not make causal wildfire attribution. Establishing causality would require joining the AQI panel with external fire perimeters, smoke plume trajectories, aerosol optical depth, wind transport, or satellite-based smoke products.
 
 \section{Threats to Validity}
-Several limitations should be considered when interpreting the results. First, \texttt{target\_aqi} is a PM2.5-derived AQI proxy, not a complete regulatory AQI label derived from all criteria pollutants. Second, the dataset combines EPA station observations with Open-Meteo supplemental records, which may introduce source heterogeneity. Third, the 2025 test-year distribution is affected by the available supplemental sources after temporal alignment, so station-level generalization should be interpreted carefully. Fourth, VPD and spatial lags are physically motivated engineered features, but the ablation study shows limited standalone evidence of improvement. Fifth, the extreme-event section identifies temporal clustering only; without external fire and smoke observations, it cannot attribute high-AQI records to wildfire causes.
+Several limitations should be considered when interpreting the results. First, \texttt{target\_aqi} is a PM2.5-derived AQI proxy, not a complete regulatory AQI label derived from all criteria pollutants. Second, the dataset combines EPA station observations with Open-Meteo supplemental records, which may introduce source heterogeneity. Notably, due to Open-Meteo providing records up to December 2025 and EPA AQS records typically lagging in real-time, the final year contains primarily Open-Meteo samples, posing an out-of-distribution risk. Third, the 2025 test-year distribution is affected by this available supplemental source alignment, so station-level generalization should be interpreted carefully. Fourth, VPD and spatial lags are physically motivated engineered features, but the ablation study shows limited standalone evidence of improvement. Fifth, the extreme-event section identifies temporal clustering only; without external fire and smoke observations, it cannot attribute high-AQI records to wildfire causes.
 
 \section{Conclusion and Future Work}
 This paper presented a California US AQI forecasting benchmark with climate-context and extreme-event evaluation. Using 181,122 hourly observations from 2018--2025, the study compared Linear Ridge, Random Forest, LightGBM, CatBoost, and XGBoost under short-term nowcasting and 24-hour forecasting scenarios. LightGBM achieved the best $R^2$ in both settings, with 0.8691 for short-term nowcasting and 0.4605 for long-term forecasting.
 
-The results show that near-term AQI prediction is strongly driven by temporal persistence, while 24-hour and upper-tail AQI forecasting remain difficult when recent local AQI is hidden. The VPD ablation result is especially important for academic wording: VPD is best described as an engineered dryness feature, not as a proven standalone performance driver. Spatial lags provide mixed evidence, with at most modest long-term MAE benefit. Future work should integrate event-aware data such as fire perimeters, smoke plumes, aerosol optical depth, planetary boundary-layer height, and upwind transport indicators. It should also extend ablation testing across model families and feature groups, and evaluate uncertainty-aware warning thresholds for high-AQI conditions.
+The results show that near-term AQI prediction is strongly driven by temporal persistence, while 24-hour and upper-tail AQI forecasting remain difficult when recent local AQI is hidden. The fact that the naive Persistence baseline performs as the best model for extreme AQI windows underscores the challenge. The VPD ablation result is especially important for academic wording: VPD is best described as an engineered dryness feature, not as a proven standalone performance driver. Spatial lags provide mixed evidence, occasionally showing small performance degradations when included. Future work should integrate event-aware data such as fire perimeters, smoke plumes, aerosol optical depth, planetary boundary-layer height, and upwind transport indicators. It should also extend ablation testing across model families and feature groups, and evaluate uncertainty-aware warning thresholds for high-AQI conditions.
 
 \begingroup
 \small

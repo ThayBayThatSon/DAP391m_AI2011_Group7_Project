@@ -12,7 +12,7 @@ from train_combined_panel_models import (
     build_feature_matrix,
     climate_context_aware_split,
     model_dictionary,
-    prepare_model_matrices,
+    prepare_lightgbm_production_matrices,
     regression_metrics,
 )
 
@@ -66,6 +66,8 @@ def run_lightgbm_ablation(configuration: str) -> list[dict]:
             _train_station_ids,
             _val_station_ids,
             _test_station_ids,
+            _train_idx,
+            _test_idx,
         ) = climate_context_aware_split(
             X_variant,
             y_variant,
@@ -75,30 +77,26 @@ def run_lightgbm_ablation(configuration: str) -> list[dict]:
         )
 
         (
-            X_train_general,
-            X_val_general,
-            X_test_general,
-            _X_train_catboost,
-            _X_val_catboost,
-            _X_test_catboost,
-            _cat_features,
-        ) = prepare_model_matrices(X_train, X_val, X_test)
+            X_train_lightgbm,
+            X_val_lightgbm,
+            X_test_lightgbm,
+        ) = prepare_lightgbm_production_matrices(X_train, X_val, X_test)
 
         model = model_dictionary()["LightGBM"]
         start = time.time()
         model.fit(
-            X_train_general,
+            X_train_lightgbm,
             y_train,
-            eval_set=[(X_val_general, y_val)],
+            eval_set=[(X_val_lightgbm, y_val)],
             callbacks=[lgb.early_stopping(EARLY_STOPPING_ROUNDS, verbose=False)],
         )
-        pred = pd.Series(model.predict(X_test_general), index=y_test.index)
+        pred = pd.Series(model.predict(X_test_lightgbm), index=y_test.index)
         rows.append(
             {
                 "Configuration": configuration,
                 "Model": "LightGBM",
                 "Feature_Set": feature_set,
-                "Feature_Count": int(X_train_general.shape[1]),
+                "Feature_Count": int(X_train_lightgbm.shape[1]),
                 **regression_metrics(y_test, pred),
                 "Runtime_sec": round(time.time() - start, 2),
             }

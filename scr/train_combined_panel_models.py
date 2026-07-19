@@ -454,6 +454,9 @@ def climate_context_aware_split(
     validation_guard_end = validation_to_train_boundary + pd.Timedelta(hours=guard_hours)
     train_mask &= ~((y_time >= validation_to_train_boundary) & (y_time < validation_guard_end))
 
+    train_idx = X.index[train_mask]
+    test_idx = X.index[test_mask]
+
     X_train, y_train, t_train = X.loc[train_mask], y.loc[train_mask], y_time.loc[train_mask]
     X_val, y_val, t_val = X.loc[val_mask], y.loc[val_mask], y_time.loc[val_mask]
     X_test, y_test, t_test = X.loc[test_mask], y.loc[test_mask], y_time.loc[test_mask]
@@ -468,7 +471,7 @@ def climate_context_aware_split(
     X_val.index = y_val.index
     X_test.index = y_test.index
 
-    return X_train, X_val, X_test, y_train, y_val, y_test, station_train, station_val, station_test
+    return X_train, X_val, X_test, y_train, y_val, y_test, station_train, station_val, station_test, train_idx, test_idx
 
 
 def regression_metrics(y_true, y_pred):
@@ -480,8 +483,8 @@ def regression_metrics(y_true, y_pred):
     }
 
 
-def scenario_masks(y_true: pd.Series):
-    return {
+def scenario_masks(y_true: pd.Series, test_raw: pd.DataFrame = None):
+    masks = {
         "Full Test Year 2025": (y_true.index >= "2025-01-01") & (y_true.index <= "2025-12-31 23:59:59"),
         "Non-Event Baseline (AQI <= 100)": y_true <= 100,
         "January 2025 Stress-Test Window": (
@@ -492,11 +495,15 @@ def scenario_masks(y_true: pd.Series):
             (y_true.index >= "2025-07-01") & (y_true.index <= "2025-09-30 23:59:59")
         ),
     }
+    if test_raw is not None and "source" in test_raw.columns:
+        masks["Source: EPA AQS"] = test_raw["source"].eq("EPA_AQS").values
+        masks["Source: Open-Meteo"] = test_raw["source"].eq("OPEN_METEO").values
+    return masks
 
 
-def evaluate_scenarios(configuration: str, model_name: str, y_true: pd.Series, y_pred: pd.Series):
+def evaluate_scenarios(configuration: str, model_name: str, y_true: pd.Series, y_pred: pd.Series, test_raw: pd.DataFrame = None):
     rows = []
-    for scenario, mask in scenario_masks(y_true).items():
+    for scenario, mask in scenario_masks(y_true, test_raw).items():
         scenario_y = y_true.loc[mask]
         scenario_pred = y_pred.loc[mask]
         if len(scenario_y) == 0:
@@ -648,6 +655,8 @@ def run_configuration(configuration: str, lightgbm_only: bool = False):
         train_station_ids,
         val_station_ids,
         test_station_ids,
+        train_idx,
+        test_idx,
     ) = climate_context_aware_split(X, y, y_time, station_ids, configuration)
 
     print(f"Dataset: {DATA_PATH}", flush=True)
@@ -734,6 +743,37 @@ def run_configuration(configuration: str, lightgbm_only: bool = False):
                 "Runtime_sec": round(time.time() - start, 2),
             }
         )
+        
+    print("\nEvaluating Naive Baselines...", flush=True)
+    lag_col = f"{TARGET}_lag_{CONFIGURATIONS[configuration]['horizon']}"
+    if lag_col in X_test.columns:
+        pred_pers = X_test[lag_col].copy()
+        pred_pers.index = y_test.index
+        predictions["Persistence"] = (y_test, pred_pers)
+        leaderboard_rows.append(
+            {
+                "Configuration": configuration,
+                "Model": "Persistence",
+                **regression_metrics(y_test, pred_pers),
+                "Runtime_sec": 0.0,
+            }
+        )
+    
+    train_raw = engineered.loc[train_idx]
+    test_raw = engineered.loc[test_idx]
+    climatology = train_raw.groupby(["hour", "month"])[f"{TARGET}_future"].mean().to_dict()
+    global_mean = y_train.mean()
+    pred_clim = test_raw.apply(lambda r: climatology.get((r["hour"], r["month"]), global_mean), axis=1)
+    pred_clim.index = y_test.index
+    predictions["Climatology"] = (y_test, pred_clim)
+    leaderboard_rows.append(
+        {
+            "Configuration": configuration,
+            "Model": "Climatology",
+            **regression_metrics(y_test, pred_clim),
+            "Runtime_sec": 0.0,
+        }
+    )
 
     leaderboard = pd.DataFrame(leaderboard_rows).sort_values("R2_Score", ascending=False).reset_index(drop=True)
     metadata_path = save_artifact_metadata(
@@ -745,7 +785,7 @@ def run_configuration(configuration: str, lightgbm_only: bool = False):
 
     scenario_rows = []
     for model_name, (model_y_true, pred) in predictions.items():
-        scenario_rows.extend(evaluate_scenarios(configuration, model_name, model_y_true, pred))
+        scenario_rows.extend(evaluate_scenarios(configuration, model_name, model_y_true, pred, test_raw))
     scenario_report = pd.DataFrame(scenario_rows)
 
     print("\nSorted Leaderboard", flush=True)

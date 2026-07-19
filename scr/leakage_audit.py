@@ -18,7 +18,7 @@ OUTPUT_PATH = Path("data/processed/california_aqi_leakage_audit.csv")
 
 
 def ridge_score(X_train, y_train, X_test, y_test):
-    X_train_scaled, _, X_test_scaled, _, _, _, _ = pipeline.prepare_model_matrices(X_train, X_test, X_test)
+    X_train_scaled, _, X_test_scaled, _, _, _, _, _ = pipeline.prepare_model_matrices(X_train, X_test, X_test)
     model = Ridge(alpha=10.0)
     model.fit(X_train_scaled, y_train)
     pred = model.predict(X_test_scaled)
@@ -61,6 +61,8 @@ def run_audit():
             train_station_ids,
             val_station_ids,
             test_station_ids,
+            _train_idx,
+            _test_idx,
         ) = pipeline.climate_context_aware_split(X, y, y_time, station_ids, configuration)
 
         guard_hours = (
