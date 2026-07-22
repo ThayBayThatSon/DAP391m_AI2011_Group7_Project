@@ -61,7 +61,7 @@ Project/
 │   └── collect_data.py                # Data collection & scraping pipeline
 ├── docs/                       # Project architecture documentation
 │   └── architecture.md         # System design & architecture details
-├── aqi_data.db                 # SQLite database storing processed panel records
+├── aqi_data.db                 # Local SQLite database (git-ignored, ~200MB)
 └── requirements.txt            # Python dependencies
 ```
 
