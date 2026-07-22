@@ -157,6 +157,7 @@ def fetch_current_aqi(station_name: str) -> AQIReading:
     )
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def call_prediction_api(station_name: str, horizon: int, observed_at: datetime, weather: dict[str, float]) -> dict[str, Any]:
     payload = {
         "station_name": station_name,
@@ -195,6 +196,7 @@ def call_prediction_api(station_name: str, horizon: int, observed_at: datetime, 
     raise RuntimeError("Prediction API request failed before receiving a response.")
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def call_prediction_timeline_api(station_name: str, observed_at: datetime, weather: dict[str, float]) -> dict[str, Any]:
     payload = {
         "station_name": station_name,
