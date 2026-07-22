@@ -333,6 +333,39 @@ def get_readable_feature_name(raw_name: str) -> str:
         
     return raw_name.replace("_", " ").title()
 
+def get_health_guidance(aqi: float) -> dict[str, str]:
+    if aqi <= 50:
+        return {
+            "general": "🟢 Air quality is satisfactory. Enjoy outdoor activities normally.",
+            "sensitive": "🟢 Sensitive individuals can participate in normal outdoor activities.",
+            "indoor": "🟢 No indoor air filtration required."
+        }
+    elif aqi <= 100:
+        return {
+            "general": "🟡 Air quality is acceptable. Outdoor activities are safe for most people.",
+            "sensitive": "🟡 People with respiratory illness should limit prolonged outdoor exertion.",
+            "indoor": "🟡 Ventilation is recommended during non-peak traffic hours."
+        }
+    elif aqi <= 150:
+        return {
+            "general": "🟠 Active adults and children should reduce heavy outdoor exertion.",
+            "sensitive": "🟠 People with asthma/heart disease MUST avoid outdoor exertion & wear N95 mask.",
+            "indoor": "🟠 Close windows during warm/dry hours and run HEPA air purifiers."
+        }
+    elif aqi <= 200:
+        return {
+            "general": "🔴 Everyone should significantly reduce outdoor physical exertion.",
+            "sensitive": "🔴 Sensitive groups MUST stay indoors and avoid all outdoor activities.",
+            "indoor": "🔴 Keep windows closed, use HEPA filtration, and set AC to recirculation."
+        }
+    else:
+        return {
+            "general": "🟣 HAZARDOUS EMERGENCY: Everyone MUST avoid all outdoor activities.",
+            "sensitive": "🟣 EMERGENCY: High risk of severe respiratory distress. Keep inhaler ready.",
+            "indoor": "🟣 Seal windows & doors, run continuous HEPA air filtration."
+        }
+
+
 def render_live_forecast_content(
     observed_at: datetime,
     weather: dict[str, float],
@@ -415,11 +448,31 @@ def render_live_forecast_content(
             "#14b8a6",
             "Open-Meteo weather",
         ),
+        (
+            "VPD (Dryness)",
+            f"{vpd:.2f} kPa",
+            "High fire risk" if vpd > 2.0 else ("Dry air" if vpd > 1.0 else "Normal moisture"),
+            "#ef4444" if vpd > 2.0 else ("#f97316" if vpd > 1.0 else "#10b981"),
+            "Vapor Pressure Deficit",
+        ),
     )
     st.markdown(
         metric_cards_grid_html(live_metrics, "live"),
         unsafe_allow_html=True,
     )
+
+    with st.expander("🛡️ Personalized Public Health Guidance Matrix", expanded=(float(prediction["predicted_aqi"]) > 100)):
+        guidance = get_health_guidance(float(prediction["predicted_aqi"]))
+        g_col1, g_col2, g_col3 = st.columns(3)
+        with g_col1:
+            st.markdown("##### 🏃 General Population")
+            st.info(guidance["general"])
+        with g_col2:
+            st.markdown("##### 👶 Sensitive Groups (Asthma, Elderly)")
+            st.warning(guidance["sensitive"])
+        with g_col3:
+            st.markdown("##### 🏠 Indoor & School Actions")
+            st.success(guidance["indoor"])
 
     interval = prediction["confidence_interval"]
     st.caption(
@@ -470,6 +523,28 @@ def render_live_forecast_content(
             "</div>"
         ),
         unsafe_allow_html=True,
+    )
+
+    report_df = pd.DataFrame([{
+        "Observed_UTC": observed_at.strftime('%Y-%m-%d %H:%M UTC'),
+        "Horizon_Hours": horizon,
+        "Current_AQI": current_aqi.value,
+        "Predicted_AQI": prediction["predicted_aqi"],
+        "AQI_Category": category,
+        "Temperature_C": weather["temperature_2m"],
+        "Humidity_Pct": weather["relative_humidity_2m"],
+        "Wind_Speed_mps": weather["wind_speed_10m"],
+        "VPD_kPa": round(vpd, 3),
+        "CI_Lower": interval["lower"],
+        "CI_Upper": interval["upper"],
+    }])
+    csv_report = report_df.to_csv(index=False)
+    st.download_button(
+        label="📥 Export Forecast & Alert Report (CSV)",
+        data=csv_report,
+        file_name=f"AQI_Forecast_Report_{observed_at.strftime('%Y%m%d_%H%M')}.csv",
+        mime="text/csv",
+        key="download_forecast_report",
     )
 
 
