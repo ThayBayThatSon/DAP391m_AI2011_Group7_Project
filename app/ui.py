@@ -918,6 +918,58 @@ with live_tab:
             format_func=lambda value: "1 Hour" if value == 1 else "24 Hours",
             key="live_forecast_horizon",
         )
+        
+        sim_mode = st.toggle("🔥 Wildfire Extreme Event Simulation", value=False, key="wildfire_sim_toggle")
+        sim_aqi = 285.0
+        if sim_mode:
+            sim_aqi = float(st.slider("Simulated Wildfire AQI Spike", min_value=100, max_value=500, value=285, step=5, key="sim_aqi_slider"))
+            st.error(f"🚨 **WILDFIRE EMERGENCY SIMULATION ACTIVE**: Injecting extreme AQI = {sim_aqi:.0f}")
+            st.markdown(
+                """
+                <style>
+                .stApp {
+                    background: radial-gradient(circle at 50% 20%, #2a0404 0%, #150202 50%, #080000 100%) !important;
+                    color: #fee2e2 !important;
+                }
+                .main .block-container {
+                    background: rgba(25, 4, 4, 0.75) !important;
+                    border: 1px solid rgba(239, 68, 68, 0.4) !important;
+                    box-shadow: 0 0 35px rgba(220, 38, 38, 0.35) !important;
+                    border-radius: 14px;
+                }
+                .aqi-title {
+                    color: #fca5a5 !important;
+                    text-shadow: 0 0 15px rgba(239, 68, 68, 0.7) !important;
+                }
+                .aqi-subtitle {
+                    color: #fecaca !important;
+                }
+                .metric-card {
+                    background: rgba(45, 8, 8, 0.8) !important;
+                    border-color: rgba(239, 68, 68, 0.5) !important;
+                    color: #fef2f2 !important;
+                    box-shadow: 0 4px 18px rgba(220, 38, 38, 0.3) !important;
+                }
+                .metric-label, .metric-value, .metric-detail {
+                    color: #fee2e2 !important;
+                }
+                .air-alert-critical {
+                    background: rgba(127, 29, 29, 0.95) !important;
+                    border-color: #ef4444 !important;
+                    color: #ffffff !important;
+                    box-shadow: 0 0 25px rgba(239, 68, 68, 0.7) !important;
+                    animation: pulse-danger 1.8s infinite;
+                }
+                @keyframes pulse-danger {
+                    0% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+                    50% { box-shadow: 0 0 30px rgba(239, 68, 68, 0.9); }
+                    100% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+                }
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
+
         st.markdown("### Spatial AQI Heatmap")
         
         # Prepare data for PyDeck heatmap
@@ -925,12 +977,14 @@ with live_tab:
         for s_name, s_info in STATIONS.items():
             curr = fetch_current_aqi(s_name)
             aqi_val = curr.value if curr.value is not None else 50.0 # Default fallback
+            if sim_mode and s_name == station_name:
+                aqi_val = sim_aqi
             heatmap_data.append({
                 "name": s_name,
                 "lat": s_info["lat"],
                 "lon": s_info["lon"],
                 "weight": aqi_val,
-                "color": [255, max(0, 255 - int(aqi_val)), 0, 160] # Simple color mapping
+                "color": [255, 0, 0, 220] if aqi_val >= 150 else [255, max(0, 255 - int(aqi_val)), 0, 160]
             })
         
         heatmap_df = pd.DataFrame(heatmap_data)
@@ -989,6 +1043,27 @@ with live_tab:
                     observed_at,
                     weather,
                 )
+                
+                if sim_mode:
+                    prediction["predicted_aqi"] = sim_aqi
+                    weather["wind_speed_10m"] = min(weather["wind_speed_10m"], 1.2)
+                    weather["relative_humidity_2m"] = min(weather["relative_humidity_2m"], 35.0)
+                    weather["rain"] = 0.0
+                    timeline_prediction["predictions"] = {
+                        1: round(sim_aqi * 0.85, 1),
+                        6: round(sim_aqi * 0.92, 1),
+                        12: sim_aqi,
+                        18: round(sim_aqi * 1.08, 1),
+                        24: round(sim_aqi * 1.15, 1),
+                    }
+                    if current_aqi.value is not None:
+                        current_aqi = AQIReading(
+                            value=sim_aqi * 0.8,
+                            observed_at=current_aqi.observed_at,
+                            label="Simulated Current AQI",
+                            source="Simulated Wildfire Sensor",
+                            is_current=True,
+                        )
             render_live_forecast_content(
                 observed_at,
                 weather,
@@ -1001,7 +1076,7 @@ with live_tab:
             with st.expander("24-Hour Forecast Timeline", expanded=True):
                 preds = timeline_prediction["predictions"]
                 horizons = sorted(int(k) for k in preds.keys())
-                vals = [preds[str(h)] for h in horizons]
+                vals = [preds[h] if h in preds else preds[str(h)] for h in horizons]
                 
                 # Add current time as hour 0
                 if current_aqi.value is not None:

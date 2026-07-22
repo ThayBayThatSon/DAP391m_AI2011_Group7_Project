@@ -52,7 +52,6 @@
 \keywords{US AQI forecasting, PM2.5, California, time-series regression, climate-context evaluation, vapor pressure deficit, spatial lag, XGBoost, extreme-event analysis}
 
 \maketitle
-\fontsize{12.5pt}{16.5pt}\selectfont
 
 \section{Introduction}\label{sec:introduction}
 Accurate air quality forecasts guide public health warnings and environmental regulation. In California, complex interactions between urban emissions, marine air masses, terrain, and wildfire smoke make hourly AQI prediction difficult. Models performing well under typical conditions often fail during severe pollution episodes. Random data splits also introduce severe temporal leakage due to autocorrelation.
@@ -217,9 +216,23 @@ Evaluation metrics include Mean Absolute Error (MAE), Root Mean Squared Error (R
 \end{equation}
 
 \subsection{System Architecture and Deployment}\label{subsec:system-architecture}
-We deployed trained pipelines into a real-time early warning web application. A FastAPI backend handles model inference and computes SHAP values for feature interpretability. An SQLite database caches Open-Meteo weather fields and EPA AQS data to minimize latency.
+We deployed trained pipelines into a real-time early warning web application. A FastAPI backend handles model inference and computes SHAP values and feature gain scores for interpretability (Figure~\ref{fig:feature-importance}). An SQLite database caches Open-Meteo weather fields and EPA AQS data to minimize latency.
 
-The Streamlit frontend displays interactive PyDeck heatmaps of AQI across Fresno, Los Angeles, and San Jose. It provides side-by-side timeline plots of actual versus predicted AQI. KPI summary cards trigger automated "Air Stagnation Alerts" during deteriorating weather or predicted AQI spikes.
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.80\linewidth]{figures/paper_shap_feature_importance.png}
+    \caption{Top 15 feature importances (gain scores) for the primary XGBoost nowcasting model, highlighting the dominance of short-term local lags, VPD, and weather ratios.}
+    \label{fig:feature-importance}
+\end{figure}
+
+The Streamlit frontend displays interactive PyDeck heatmaps of AQI across Fresno, Los Angeles, and San Jose. It provides side-by-side timeline plots of actual versus predicted AQI. KPI summary cards trigger automated "Air Stagnation Alerts" during deteriorating weather or predicted AQI spikes (Figure~\ref{fig:dashboard-ui}).
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.85\linewidth]{figures/paper_dashboard_ui.png}
+    \caption{Real-time early warning web application UI showing the PyDeck spatial AQI heatmap, atmospheric condition indicators, short-term and 24-hour prediction metrics, and automated alert panels.}
+    \label{fig:dashboard-ui}
+\end{figure}
 
 \section{Results and Discussion}\label{sec:results}
 \subsection{Overall Leaderboard}\label{subsec:leaderboard}
@@ -310,13 +323,22 @@ Long-term & July--September 2025 wildfire season & Random Forest & 6624 & 13.313
 Three insights emerge. First, Persistence outperforms machine learning models on short-term top-5\% AQI and Wildfire slices. Second, short-term top-5\% $R^2$ drops to 0.3004. Third, 24-hour top-tail forecasts yield negative $R^2$ across all models (Persistence: $-2.3742$). Without smoke plume or fire perimeter inputs, weather and lag features cannot anticipate abrupt upper-tail spikes.
 
 \subsection{Prediction Diagnostics}\label{subsec:diagnostics}
-Figure~\ref{fig:xgboost-predicted-actual} plots XGBoost predictions against actual AQI. While central values match closely, high-AQI peaks display dispersion.
+Figure~\ref{fig:predicted-vs-actual-comparison} compares predicted versus actual AQI scatter plots for both XGBoost and LightGBM. While central values match closely along the 1:1 identity line, high-AQI peaks display dispersion across both gradient boosting architectures.
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.82\linewidth]{figures/paper_xgboost_predicted_vs_actual.png}
-    \caption{Predicted versus actual AQI for XGBoost on the independent 2025 test year.}
-    \label{fig:xgboost-predicted-actual}
+    \begin{minipage}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/paper_xgboost_predicted_vs_actual.png}
+        \centerline{\small (a) XGBoost ($R^2 = 0.8711$)}
+    \end{minipage}\hfill
+    \begin{minipage}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/paper_lightgbm_predicted_vs_actual.png}
+        \centerline{\small (b) LightGBM ($R^2 = 0.8706$)}
+    \end{minipage}
+    \caption{Predicted versus actual AQI scatter diagnostics on the independent 2025 test year for top-performing gradient boosted decision tree regressors.}
+    \label{fig:predicted-vs-actual-comparison}
 \end{figure}
 
 \subsection{Comparison with Reference Baseline Literature (RBL)}\label{subsec:rbl-comparison}

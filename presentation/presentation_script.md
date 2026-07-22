@@ -540,3 +540,11 @@ Xin cảm ơn hội đồng đã lắng nghe!"
 **Câu 21 (Về Ablation Study và vai trò của VPD):**
 *Hội đồng hỏi:* Theo báo cáo, khi loại bỏ biến VPD thì R2 chỉ thay đổi rất nhỏ (khoảng 0.001 đến 0.002). Tại sao nhóm vẫn quyết định giữ biến này trong mô hình và gọi nó là "biến bối cảnh"?
 *Cách trả lời:* "Dạ thưa, việc tính toán và thêm biến VPD là một quyết định dựa trên Domain Knowledge nhằm cung cấp cho mô hình thước đo về độ khô hạn của không khí - yếu tố cực kỳ quan trọng trong cháy rừng. Mặc dù kết quả Ablation study minh bạch cho thấy điểm số R2 trung bình toàn cục không tăng vọt, nhưng nhóm vẫn giữ lại vì nó giúp mô hình có thêm dữ kiện vật lý trong các phân cảnh cực đoan. Qua đó nhóm cũng rút ra bài học là không nói quá (oversimplify) về sức mạnh của một biến số, mà nhìn nhận nó đúng với vai trò là 'biến bối cảnh' (context feature) ạ."
+
+**Câu 22 (Về Chỉ số Relative Prediction Accuracy trên Dashboard):**
+*Hội đồng hỏi:* Chỉ số "Relative Prediction Accuracy = 100% - wMAPE" trên Dashboard được tính như thế nào? Tại sao mô hình Climatology có $R^2$ âm ($-0.0687$) nhưng Relative Accuracy vẫn đạt $67.70\%$? Cách tính này có mâu thuẫn hay đáng tin cậy không?
+*Cách trả lời:* "Dạ thưa hội đồng, hai chỉ số này đánh giá hai khía cạnh hoàn toàn khác nhau nên không mâu thuẫn ạ:
+1. **$R^2$ Score (Hệ số xác định):** Là thước đo học thuật chuẩn được nhóm báo cáo chính thức trong bài báo (Section 5), dùng để đánh giá khả năng mô hình giải thích sự biến thiên (variance) của AQI. $R^2 < 0$ ở Climatology cho thấy mô hình baseline này không bắt được các biến động cực đoan.
+2. **Relative Accuracy ($100\% - \text{wMAPE}$):** Là chỉ số vận hành (operational metric) nhóm thiết kế thêm trên giao diện Web App cho người dùng phổ thông. Nhóm dùng $\text{wMAPE} = \frac{\sum |y_i - \hat{y}_i|}{\sum y_i}$ (Weighted MAPE) thay vì MAPE thông thường để tránh hiện tượng bùng nổ phân số khi AQI tiệm cận 0. Con số $67.70\%$ chỉ phản ánh rằng tổng sai số tuyệt đối của Climatology chiếm $32.30\%$ quy mô AQI thực tế.
+Tóm lại, trong bài báo nghiên cứu nhóm hoàn toàn tuân thủ chuẩn mực bằng bộ ba MAE, RMSE, $R^2$, còn Relative Accuracy là chỉ số trực quan giao diện giúp cán bộ quản lý dễ ước lượng tỷ lệ sai số theo phần trăm ạ."
+

@@ -79,6 +79,8 @@ MODEL_COLORS = {
     "Linear Ridge": "#16a34a",
     "CatBoost": "#7e22ce",
     "Random Forest": "#8b5e3c",
+    "Persistence": "#64748b",
+    "Climatology": "#0284c7",
 }
 
 
