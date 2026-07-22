@@ -63,3 +63,26 @@ graph TD
 - **Data Manipulation**: Pandas, NumPy
 - **Visualization**: Plotly, PyDeck
 - **Deployment**: Docker, Docker Compose
+
+## 4. Enterprise Architecture Enhancements (Future Roadmap)
+
+To scale this system for high-concurrency production environments and automate the MLOps lifecycle, the following architectural upgrades are recommended:
+
+### 4.1. Centralized API Gateway & Data Fetching
+- **Current**: Streamlit fetches data directly from the Open-Meteo API.
+- **Upgrade**: Move all external API calls (Open-Meteo, EPA) to the FastAPI backend. Streamlit should only communicate with FastAPI, hiding API logic from the frontend and allowing centralized data aggregation.
+
+### 4.2. Caching Layer (Redis)
+- **Upgrade**: Implement Redis between FastAPI and External APIs. Caching weather forecasts and heavy SHAP calculations for 15-30 minutes will drastically reduce latency, improve User Experience, and prevent hitting external API rate limits.
+
+### 4.3. Model Registry (MLflow / Weights & Biases)
+- **Current**: Models are saved as static local files (`.txt`).
+- **Upgrade**: Integrate MLflow to version-control model artifacts, track hyperparameters, and monitor MAE/RMSE metrics over time. FastAPI can dynamically pull the best-performing "Production" model from the registry.
+
+### 4.4. Automated Training Pipeline (Apache Airflow / Celery)
+- **Current**: `train_combined_panel_models.py` is executed manually.
+- **Upgrade**: Use a task scheduler (Celery + RabbitMQ or Apache Airflow) to automatically fetch weekly EPA data, retrain models, and deploy them if their accuracy exceeds the current baseline. This creates a fully automated Continuous Training (CT) loop.
+
+### 4.5. Robust Database (PostgreSQL + TimescaleDB)
+- **Current**: SQLite is used for storing historical AQI and weather data.
+- **Upgrade**: Migrate to PostgreSQL with the TimescaleDB extension for better concurrency when multiple users access the dashboard simultaneously, and for faster time-series data aggregations.

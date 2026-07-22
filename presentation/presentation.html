@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Comparative US AQI Time Series Forecasting in California</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
+
+  <!-- MathJax for LaTeX -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+
+  <style>
+    /* ============================================================
+       CSS CUSTOM PROPERTIES & RESET
+       ============================================================ */
+    :root {
+      --dark-blue: #0a1628;
+      --deep-blue: #0f2244;
+      --mid-blue: #1a3a6b;
+      --accent-blue: #2e6fd1;
+      --light-blue: #4a90e2;
+      --sky-blue: #7ec8e3;
+      --white: #ffffff;
+      --off-white: #f0f4f8;
+      --highlight-yellow: #ffd700;
+      --highlight-orange: #ff9f43;
+      --highlight-red: #ff4757;
+      --text-muted: #a0b0c8;
+      --border-color: rgba(78, 144, 226, 0.3);
+      --card-bg: rgba(15, 34, 68, 0.6);
+      --glass-bg: rgba(255, 255, 255, 0.05);
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --font-primary: 'Inter', 'Roboto', sans-serif;
+      --slide-width: 1280px;
+      --slide-height: 720px;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-primary);
+      background: var(--dark-blue);
+      color: var(--white);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* ============================================================
+       SLIDE CONTAINER & NAVIGATION
+       ============================================================ */
+    .presentation {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .slide {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 50px 80px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.5s ease, transform 0.5s ease;
+      transform: translateX(40px);
+      background: linear-gradient(135deg, var(--dark-blue) 0%, var(--deep-blue) 50%, var(--mid-blue) 100%);
+      overflow: hidden;
+    }
+
+    .slide.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(0);
+    }
+
+    /* Decorative elements */
+    .slide::before {
+      content: '';
+      position: absolute;
+      top: -200px;
+      right: -200px;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(46, 111, 209, 0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .slide::after {
+      content: '';
+      position: absolute;
+      bottom: -150px;
+      left: -150px;
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(126, 200, 227, 0.05) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ============================================================
+       NAVIGATION CONTROLS
+       ============================================================ */
+    .nav-controls {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      z-index: 1000;
+      background: rgba(10, 22, 40, 0.85);
+      backdrop-filter: blur(12px);
+      padding: 10px 24px;
+      border-radius: 50px;
+      border: 1px solid var(--glass-border);
+    }
+
+    .nav-btn {
+      background: none;
+      border: 1.5px solid var(--accent-blue);
+      color: var(--accent-blue);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.25s ease;
+    }
+    .nav-btn:hover {
+      background: var(--accent-blue);
+      color: var(--white);
+      box-shadow: 0 0 20px rgba(46, 111, 209, 0.4);
+    }
+
+    .slide-counter {
+      font-size: 14px;
+      color: var(--text-muted);
+      font-weight: 500;
+      min-width: 60px;
+      text-align: center;
+    }
+
+    .progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent-blue), var(--sky-blue));
+      transition: width 0.4s ease;
+      z-index: 1000;
+    }
+
+    /* ============================================================
+       TYPOGRAPHY
+       ============================================================ */
+    .slide-number {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 1px;
+    }
+
+    .section-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      color: var(--sky-blue);
+      margin-bottom: 10px;
+      padding: 4px 12px;
+      border: 1px solid var(--sky-blue);
+      border-radius: 4px;
+    }
+
+    h1.slide-title {
+      font-size: 42px;
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, var(--white) 30%, var(--sky-blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    h2.slide-title {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 24px;
+      color: var(--white);
+      border-bottom: 2px solid var(--accent-blue);
+      padding-bottom: 10px;
+      display: inline-block;
+    }
+
+    .subtitle {
+      font-size: 22px;
+      font-weight: 300;
+      color: var(--sky-blue);
+      margin-bottom: 20px;
+    }
+
+    .meta-text {
+      font-size: 15px;
+      color: var(--text-muted);
+      line-height: 1.8;
+    }
+    .meta-text strong {
+      color: var(--white);
+      font-weight: 600;
+    }
+
+    /* ============================================================
+       BULLET LISTS
+       ============================================================ */
+    .content-list {
+      list-style: none;
+      padding: 0;
+    }
+    .content-list li {
+      position: relative;
+      padding: 8px 0 8px 28px;
+      font-size: 17px;
+      line-height: 1.6;
+      color: var(--off-white);
+    }
+    .content-list li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 16px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-blue);
+      box-shadow: 0 0 8px rgba(46, 111, 209, 0.5);
+    }
+    .content-list li strong {
+      color: var(--white);
+      font-weight: 600;
+    }
+    .content-list .sub-list {
+      margin-top: 4px;
+      margin-left: 10px;
+    }
+    .content-list .sub-list li::before {
+      width: 6px;
+      height: 6px;
+      background: var(--sky-blue);
+      box-shadow: none;
+    }
+
+    .numbered-list {
+      list-style: none;
+      padding: 0;
+      counter-reset: item;
+    }
+    .numbered-list li {
+      position: relative;
+      padding: 10px 0 10px 48px;
+      font-size: 17px;
+      line-height: 1.6;
+      color: var(--off-white);
+      counter-increment: item;
+    }
+    .numbered-list li::before {
+      content: counter(item);
+      position: absolute;
+      left: 0;
+      top: 8px;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--accent-blue);
+      color: var(--white);
+      font-weight: 700;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .numbered-list li strong {
+      color: var(--white);
+    }
+
+    /* ============================================================
+       HIGHLIGHTS
+       ============================================================ */
+    .highlight {
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 159, 67, 0.1));
+      border-left: 3px solid var(--highlight-yellow);
+      padding: 12px 18px;
+      margin: 10px 0;
+      border-radius: 0 8px 8px 0;
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--off-white);
+    }
+    .highlight strong,
+    .highlight .hl-label {
+      color: var(--highlight-yellow);
+      font-weight: 700;
+    }
+    .highlight-red {
+      border-left-color: var(--highlight-red);
+      background: linear-gradient(135deg, rgba(255, 71, 87, 0.12), rgba(255, 71, 87, 0.05));
+    }
+    .highlight-red strong, .highlight-red .hl-label {
+      color: var(--highlight-red);
+    }
+
+    /* ============================================================
+       TABLES
+       ============================================================ */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 15px;
+      margin: 16px 0;
+    }
+    .data-table thead th {
+      background: var(--accent-blue);
+      color: var(--white);
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 1px;
+    }
+    .data-table thead th:first-child { border-radius: 8px 0 0 0; }
+    .data-table thead th:last-child { border-radius: 0 8px 0 0; }
+    .data-table tbody td {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--off-white);
+    }
+    .data-table tbody tr:hover {
+      background: rgba(46, 111, 209, 0.08);
+    }
+    .data-table tbody tr.best-row {
+      background: rgba(255, 215, 0, 0.08);
+    }
+    .data-table tbody tr.best-row td {
+      color: var(--highlight-yellow);
+      font-weight: 600;
+    }
+    .data-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .data-table tbody tr:last-child td:first-child { border-radius: 0 0 0 8px; }
+    .data-table tbody tr:last-child td:last-child { border-radius: 0 0 8px 0; }
+
+    /* ============================================================
+       IMAGES
+       ============================================================ */
+    .image-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      padding: 10px 0;
+    }
+    .image-container img {
+      max-width: 72%;
+      max-height: 55vh;
+      object-fit: contain;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    .image-caption {
+      margin-top: 12px;
+      font-size: 14px;
+      color: var(--text-muted);
+      text-align: center;
+      max-width: 80%;
+      line-height: 1.5;
+    }
+    .image-caption strong {
+      color: var(--highlight-yellow);
+    }
+
+    /* ============================================================
+       LAYOUT HELPERS
+       ============================================================ */
+    .split-layout {
+      display: flex;
+      gap: 40px;
+      flex: 1;
+      align-items: flex-start;
+    }
+    .split-left { flex: 1; }
+    .split-right { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 24px;
+      backdrop-filter: blur(8px);
+    }
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--sky-blue);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 14px;
+    }
+
+    /* Cover slide specific */
+    .cover-slide {
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+    .cover-divider {
+      width: 80px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent-blue), var(--sky-blue));
+      margin: 20px auto;
+      border-radius: 2px;
+    }
+
+    /* Q&A Slide */
+    .qa-slide {
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+    .qa-title {
+      font-size: 56px;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--white), var(--sky-blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 20px;
+    }
+    .qa-link {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 14px 36px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--light-blue));
+      color: var(--white);
+      text-decoration: none;
+      border-radius: 50px;
+      font-weight: 600;
+      font-size: 16px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 20px rgba(46, 111, 209, 0.4);
+    }
+    .qa-link:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(46, 111, 209, 0.6);
+    }
+
+    /* Outline cards */
+    .outline-card {
+      background: var(--card-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      backdrop-filter: blur(8px);
+      transition: all 0.3s ease;
+    }
+    .outline-card:hover {
+      border-color: var(--accent-blue);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(46, 111, 209, 0.2);
+    }
+    .outline-part {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--accent-blue);
+      margin-bottom: 6px;
+    }
+    .outline-desc {
+      font-size: 16px;
+      color: var(--off-white);
+      line-height: 1.5;
+    }
+
+    /* Keyboard hints */
+    .keyboard-hint {
+      position: fixed;
+      bottom: 80px;
+      right: 30px;
+      font-size: 11px;
+      color: var(--text-muted);
+      z-index: 1000;
+      opacity: 0.6;
+    }
+    .kbd {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--glass-border);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-family: monospace;
+      font-size: 11px;
+      margin: 0 2px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="presentation" id="presentation">
+  <div class="progress-bar" id="progressBar"></div>
+
+  <!-- ============================================================
+       SLIDE 1: TITLE / COVER
+       ============================================================ -->
+  <div class="slide cover-slide active" data-slide="1">
+    <span class="slide-number">01 / 24</span>
+    <span class="section-tag">DAP391m Final Project</span>
+    <h1 class="slide-title" style="font-size: 46px; margin-top: 10px;">Comparative US AQI<br/>Time Series Forecasting in California</h1>
+    <p class="subtitle">with Extreme-Event and Climate-Context Evaluation</p>
+    <div class="cover-divider"></div>
+    <p class="meta-text" style="margin-top: 10px;">
+      FPT University Ho Chi Minh City<br/>
+      <strong>Group 7:</strong> Ta Nguyen Anh Minh (SE200416) &bull; Trinh Quoc Sang (SE194517)<br/>
+      <strong>Supervisor:</strong> Le Vo Minh Thu
+    </p>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 2: TABLE OF CONTENTS
+       ============================================================ -->
+  <div class="slide" data-slide="2">
+    <span class="slide-number">02 / 24</span>
+    <span class="section-tag">Overview</span>
+    <h2 class="slide-title">Outline (10 Data Science Steps)</h2>
+    <div class="two-col" style="margin-top: 10px;">
+      <div class="outline-card">
+        <div class="outline-part">Part 1</div>
+        <div class="outline-desc">Problem &amp; Data Understanding<br/><span style="font-size:13px; color: var(--text-muted);">Steps 1–3</span></div>
+      </div>
+      <div class="outline-card">
+        <div class="outline-part">Part 2</div>
+        <div class="outline-desc">Feature Engineering &amp; Visualization<br/><span style="font-size:13px; color: var(--text-muted);">Steps 3–4</span></div>
+      </div>
+      <div class="outline-card">
+        <div class="outline-part">Part 3</div>
+        <div class="outline-desc">Modeling, Evaluation &amp; AI Application<br/><span style="font-size:13px; color: var(--text-muted);">Steps 5–9</span></div>
+      </div>
+      <div class="outline-card">
+        <div class="outline-part">Part 4</div>
+        <div class="outline-desc">Conclusion &amp; AI Reflection<br/><span style="font-size:13px; color: var(--text-muted);">Step 10 + Q&amp;A</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 3: STEP 1 – PROBLEM UNDERSTANDING
+       ============================================================ -->
+  <div class="slide" data-slide="3">
+    <span class="slide-number">03 / 24</span>
+    <span class="section-tag">Step 1</span>
+    <h2 class="slide-title">Problem Understanding</h2>
+    <ul class="content-list">
+      <li><strong>Business Context:</strong> California wildfires pose severe health risks. Early warning is critical.</li>
+      <li><strong>Task Type:</strong> Regression (Predicting continuous AQI).</li>
+      <li><strong>Target:</strong> Hourly PM2.5-derived AQI (Highly right-skewed with extreme upper-tail spikes).</li>
+      <li><strong>Features:</strong> Time-series (Lags), Meteorological (Temp, Humidity), and Engineered (VPD).</li>
+      <li><strong>Success Metrics:</strong> $R^2$ (Explained Variance), MAE, and RMSE.</li>
+      <li><strong>RBL Justification:</strong> Grounded in baseline paper (Vu et al., 2022). Supported by AI Audit Log.</li>
+    </ul>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 4: RESEARCH QUESTIONS
+       ============================================================ -->
+  <div class="slide" data-slide="4">
+    <span class="slide-number">04 / 24</span>
+    <span class="section-tag">Research Questions</span>
+    <h2 class="slide-title">Research Questions (RQs)</h2>
+    <ol class="numbered-list">
+      <li><strong>RQ1:</strong> How accurately can common tabular machine-learning models forecast hourly US AQI in California under a leakage-safe temporal evaluation protocol?</li>
+      <li><strong>RQ2:</strong> How does the availability of recent local AQI history affect forecasting performance between short-term autoregressive nowcasting and strict 24-hour-ahead forecasting?</li>
+      <li><strong>RQ3:</strong> How stable are the forecasting models under climate-context and extreme-AQI evaluation, and what do VPD and spatial lag features contribute?</li>
+    </ol>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 5: STEP 2 – DATA UNDERSTANDING
+       ============================================================ -->
+  <div class="slide" data-slide="5">
+    <span class="slide-number">05 / 24</span>
+    <span class="section-tag">Step 2</span>
+    <h2 class="slide-title">Data Understanding &amp; Preprocessing</h2>
+    <ul class="content-list">
+      <li><strong>Dataset Profile &amp; AI Audit:</strong> 181,122 rows $\times$ 21 base columns. Sources: EPA AQS &amp; Open-Meteo.</li>
+      <li><strong>Missing Values:</strong> Conservative Linear Interpolation (6h limit) to fix short dropouts; <code>dropna</code> for long gaps.</li>
+      <li><strong>Outliers:</strong> Extreme upper-tail AQI spikes detected. <strong style="color: var(--highlight-yellow);">Decision: RETAINED</strong>, as predicting wildfire events is the primary goal.</li>
+      <li><strong>Inconsistent:</strong> Handled UTC-to-Local timezone misalignment and removed duplicated timestamps.</li>
+      <li><strong>Skewness &amp; Imbalance:</strong> Target is heavily right-skewed. <strong style="color: var(--highlight-yellow);">Decision: No log-transform</strong>, because tree-based models handle skewness natively and we predict raw AQI directly.</li>
+    </ul>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 6: DATA ALIGNMENT & PREPROCESSING
+       ============================================================ -->
+  <div class="slide" data-slide="6">
+    <span class="slide-number">06 / 24</span>
+    <span class="section-tag">Step 1 (Cont.)</span>
+    <h2 class="slide-title">Data Alignment &amp; Preprocessing</h2>
+    <ul class="content-list">
+      <li>Merged EPA AQS observations with Open-Meteo weather parameters.</li>
+      <li>Built a <strong>181,122-record hourly panel (2018–2025)</strong> for Fresno, LA, and San Jose.</li>
+      <li>Handled missing data via <strong>Conservative Linear Interpolation</strong> (6-hour limit).</li>
+      <li>Dropped long missing gaps to prevent <em>"hallucinating"</em> data during critical wildfire spikes.</li>
+    </ul>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 7: GEOSPATIAL ANALYSIS (EDA)
+       ============================================================ -->
+  <div class="slide" data-slide="7">
+    <span class="slide-number">07 / 24</span>
+    <span class="section-tag">Step 3 — EDA</span>
+    <h2 class="slide-title">EDA — Geospatial Analysis</h2>
+    <div class="image-container">
+      <img src="../data/plots/paper_station_map.png" alt="AQS Station Map" />
+      <p class="image-caption">Mapped AQS stations using Latitude/Longitude. Ensures spatial coverage across <strong>Fresno</strong>, <strong>Los Angeles</strong>, and <strong>San Jose</strong>. Charts generated via AI prompts — code &amp; evidence logged in AI Audit Log.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 8: MULTIVARIATE CORRELATION (EDA)
+       ============================================================ -->
+  <div class="slide" data-slide="8">
+    <span class="slide-number">08 / 24</span>
+    <span class="section-tag">Step 3 — EDA</span>
+    <h2 class="slide-title">EDA — Multivariate Analysis</h2>
+    <div class="image-container">
+      <img src="../data/plots/eda/03_correlation_heatmap.png" alt="Correlation Heatmap" />
+      <p class="image-caption">Correlation matrix across multiple features. <strong>Insight:</strong> Weak linear correlations justify the RBL decision to use non-linear (Tree-based) models to answer RQ1.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 9: TEMPORAL & UNIVARIATE ANALYSIS (EDA)
+       ============================================================ -->
+  <div class="slide" data-slide="9">
+    <span class="slide-number">09 / 24</span>
+    <span class="section-tag">Step 3 — EDA</span>
+    <h2 class="slide-title">EDA — Univariate &amp; Bivariate Timeline</h2>
+    <div class="image-container">
+      <img src="../data/plots/eda/02_target_aqi_time_patterns.png" alt="AQI Category Timeline" />
+      <p class="image-caption">Analyzed AQI distribution and temporal patterns. <strong>Insight:</strong> Severe upper-tail spikes cluster in late summer — especially the <strong style="color: var(--highlight-yellow);">2020 Historic Wildfires</strong>. This directly sets context for <strong>RQ3</strong> stability evaluation.</p>
+    </div>
+  </div>
+
+    <!-- ============================================================
+       SLIDE 10: EDA — DISTRIBUTION & OUTLIERS
+       ============================================================ -->
+  <div class="slide" data-slide="10">
+    <span class="slide-number">10 / 24</span>
+    <span class="section-tag">Step 3 — EDA</span>
+    <h2 class="slide-title">EDA — Distribution &amp; Outliers</h2>
+    <div class="two-col" style="margin-top: 20px;">
+      <div class="image-container" style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 12px;">
+        <img src="../data/plots/eda/paper_aqi_distribution.png" alt="AQI Distribution" style="max-height: 38vh;" />
+        <p class="image-caption" style="margin-top: 10px;">Distribution shows a heavy right tail.</p>
+      </div>
+      <div class="image-container" style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 12px;">
+        <img src="../data/plots/eda/paper_aqi_boxplots.png" alt="AQI Boxplots" style="max-height: 38vh;" />
+        <p class="image-caption" style="margin-top: 10px;">Extreme upper-tail spikes (wildfires).</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 11: EDA — SEASONALITY ANALYSIS
+       ============================================================ -->
+  <div class="slide" data-slide="11">
+    <span class="slide-number">11 / 24</span>
+    <span class="section-tag">Step 3 — EDA</span>
+    <h2 class="slide-title">EDA — Seasonality Analysis</h2>
+    <div class="two-col" style="margin-top: 20px;">
+      <div class="image-container" style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 12px;">
+        <img src="../data/plots/eda/paper_aqi_seasonality.png" alt="AQI Seasonality" style="max-height: 38vh;" />
+        <p class="image-caption" style="margin-top: 10px;">Breakdown by Month, Season, and Day.</p>
+      </div>
+      <div class="image-container" style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 12px;">
+        <img src="../data/plots/eda/paper_aqi_violin.png" alt="AQI Violin Plots" style="max-height: 38vh;" />
+        <p class="image-caption" style="margin-top: 10px;">Violin plots revealing volatile summer/autumn.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 12: EDA — AQI VS VPD
+       ============================================================ -->
+  <div class="slide" data-slide="12">
+    <span class="slide-number">12 / 24</span>
+    <span class="section-tag">Step 3 — EDA</span>
+    <h2 class="slide-title">EDA — AQI &amp; Vapor Pressure Deficit (VPD)</h2>
+    <div class="image-container" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding-top: 20px;">
+      <img src="../data/plots/eda/paper_aqi_vpd_relationship.png" alt="AQI and VPD" style="max-height: 55vh; border-radius: 12px;" />
+      <p class="image-caption" style="margin-top: 20px; font-size: 16px; max-width: 900px;">Monthly trend comparing AQI and VPD. <strong style="color: var(--highlight-yellow);">Insight:</strong> Strong physical correlation during dry wildfire months.</p>
+    </div>
+  </div>
+
+    <!-- ============================================================
+       SLIDE 13: EDA — EXTREME EVENTS PROFILING
+       ============================================================ -->
+  <div class="slide" data-slide="13">
+    <span class="slide-number">13 / 24</span>
+    <span class="section-tag">Step 3 — EDA</span>
+    <h2 class="slide-title">EDA — Extreme Events Profiling</h2>
+    <div class="split-layout" style="margin-top: 10px;">
+      <div class="split-left" style="flex: 0.5;">
+        <div class="image-container" style="padding: 5px; background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 10px;">
+          <img src="../data/plots/eda/paper_aqi_extreme_events_heatmap.png" alt="Extreme Events Heatmap" style="max-height: 25vh;" />
+        </div>
+        <div class="image-container" style="padding: 5px; background: rgba(255,255,255,0.05); border-radius: 12px;">
+          <img src="../data/plots/eda/paper_aqi_extreme_events_bar.png" alt="Extreme Events Bar Chart" style="max-height: 25vh;" />
+        </div>
+      </div>
+      <div class="split-right" style="flex: 0.5;">
+        <div class="image-container" style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 12px; height: 100%; display: flex; flex-direction: column; justify-content: center;">
+          <img src="../data/plots/eda/paper_aqi_outlier_detection.png" alt="AQI Outlier Detection" style="max-height: 35vh;" />
+          <p class="image-caption" style="margin-top: 15px;"><strong>Insight:</strong> 2020 (August Complex) and 2025 (Palisades) dominate the extreme upper-tail events (Top 1%), perfectly justifying our manual Holdout/Test year selection.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 14: STEP 4 – FEATURE ENGINEERING
+       ============================================================ -->
+  <div class="slide" data-slide="14">
+    <span class="slide-number">10 / 24</span>
+    <span class="section-tag">Step 4</span>
+    <h2 class="slide-title">Feature Engineering</h2>
+    <ul class="content-list" style="font-size: 16px;">
+      <li><strong>Handling Review:</strong> Outliers retained, Missing filled via 6h-interpolation, Target not log-transformed (as justified in Step 2).</li>
+      <li><strong>Feature Enrichment:</strong> Created Temporal Lags (1-3h) and Spatial Lags (cross-station averages).</li>
+      <li><strong>Feature Transformation:</strong> Derived non-linear physical feature <strong style="color: var(--sky-blue);">VPD</strong> (Vapor Pressure Deficit) from Temp &amp; Humidity.</li>
+      <li><strong>Feature Selection:</strong> Dropped near-zero variance features; monitored Multicollinearity.</li>
+      <li><strong>Feature Encoding:</strong> Extracted cyclic temporal features (Month, Hour) and applied OneHotEncoder for categorical <code>city</code>.</li>
+      <li><strong>Feature Scaling:</strong> None applied. Tree-based models (XGBoost) split on thresholds and are scale-invariant.</li>
+    </ul>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 15: INTERACTIVE DASHBOARD DEMO
+       ============================================================ -->
+  <div class="slide" data-slide="15">
+    <span class="slide-number">11 / 24</span>
+    <span class="section-tag">Step 9</span>
+    <h2 class="slide-title">Interactive AI Dashboard</h2>
+    <div class="split-layout">
+      <div class="split-left">
+        <ul class="content-list" style="font-size: 15px;">
+          <li><strong>Interactive Charts:</strong> 3+ Plotly charts (Timeline Line Chart, SHAP Bar Chart, Alignment Scatter).</li>
+          <li><strong>Interactivity:</strong> Station, Time Horizon &amp; Wildfire Event dropdown filters.</li>
+          <li><strong>KPI Cards:</strong> Custom HTML metric cards showing live AQI predictions and deltas.</li>
+          <li><strong>Geospatial Map:</strong> PyDeck interactive 3D map.</li>
+          <li><strong style="color: var(--highlight-red);">🚨 Air Stagnation Alerts:</strong> Real-time Advisory / Critical warning banners auto-triggered during wildfire events.</li>
+        </ul>
+        <div class="highlight" style="margin-top: 10px;">
+          <span class="hl-label">RBL &amp; AI Audit Log:</span> Streamlit selected over Dash for native ML inference. Dashboard UI generated via AI prompts (logged in Audit).
+        </div>
+      </div>
+      <div class="split-right">
+        <div class="card" style="text-align: center; padding: 20px;">
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Scan to Demo</p>
+          <a href="https://starlink.tail334064.ts.net/" target="_blank">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?data=https://starlink.tail334064.ts.net/&size=300x300"
+                 alt="QR Code - Live Dashboard"
+                 style="width: 220px; height: 220px; border-radius: 8px; border: 3px solid var(--accent-blue); display: block; margin: 0 auto;"/>
+          </a>
+          <a href="https://starlink.tail334064.ts.net/" target="_blank" style="display: block; margin-top: 10px; font-size: 12px; color: var(--sky-blue); text-decoration: none;">starlink.tail334064.ts.net</a>
+          <p style="font-size: 11px; color: var(--text-muted); margin-top: 8px; line-height: 1.5;">🔴 Critical Air Stagnation Alert<br/>"Wildfire event focus" dropdown</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 16: DATASET PARTITION (HUMAN DELTA)
+       ============================================================ -->
+  <div class="slide" data-slide="16">
+    <span class="slide-number">12 / 24</span>
+    <span class="section-tag">Step 5</span>
+    <h2 class="slide-title">Climate-Context-Aware Temporal Split</h2>
+    <ul class="content-list" style="margin-bottom: 10px;">
+      <li>Avoided random <code>train_test_split</code> to prevent chronological Data Leakage &amp; Context Leakage.</li>
+      <li><strong>Training:</strong> 2018, 2019, 2021–2024</li>
+      <li><strong>Validation (Holdout):</strong> 2020 (August Complex Wildfires)</li>
+      <li><strong>Testing:</strong> 2025 (Palisades Fire Extreme Year)</li>
+    </ul>
+    <div class="highlight" style="margin-bottom: 8px;">
+      <span class="hl-label">Climatological Justification:</span> 2022-2023 saw record rains (Atmospheric Rivers) causing low pollution. If models train purely on recent calm years, they severely underestimate the extreme wildfire spikes of 2025.
+    </div>
+    <div class="highlight highlight-red">
+      <span class="hl-label">Human Delta:</span> Forcing the model to validate strictly on the 2020 extreme wildfire season prevents this "shock" — a domain-knowledge decision standard AI fails to make.
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 17: PIPELINE & GRIDSEARCHCV
+       ============================================================ -->
+  <div class="slide" data-slide="17">
+    <span class="slide-number">13 / 24</span>
+    <span class="section-tag">Steps 8 &amp; 9</span>
+    <h2 class="slide-title">Sklearn Pipeline &amp; GridSearchCV</h2>
+    <div class="split-layout">
+      <div class="split-left">
+        <ul class="content-list" style="font-size: 15px;">
+          <li><strong>Step 8 (GridSearchCV):</strong> Applied TimeSeriesSplit (CV) and GridSearchCV to tune hyperparameters (<code>max_depth</code>, <code>learning_rate</code>, <code>n_estimators</code>) for the best models (XGBoost/LightGBM) to prevent overfitting.</li>
+          <li><strong>Step 9 (Pipeline Saved):</strong> The entire workflow (imputation, encoding, scaling, modeling) was packaged and saved as a single <code>.pkl</code> artifact via <code>joblib</code>, ensuring zero data leakage during production inference.</li>
+        </ul>
+        <div class="highlight highlight-red" style="margin-top: 14px;">
+          <span class="hl-label">Chronological Boundary Leakage Guard:</span> Enforced strict safety margins to prevent future data from leaking through lag features (Dropped 4 hours at boundaries for Nowcasting, and 215 hours for 24h Forecasting).
+        </div>
+      </div>
+      <div class="split-right" style="flex: 1.6; align-self: center;">
+        <!-- INLINE PIPELINE DIAGRAM -->
+        <div style="font-size: 13px; font-family: var(--font-primary); width: 100%;">
+          <p style="text-align:center; font-size: 13px; color: var(--sky-blue); font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 14px;">AQI Forecasting Pipeline Architecture</p>
+          <!-- Row 1: Steps 1-4 left to right -->
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 6px;">
+            <div style="background: rgba(46,111,209,0.25); border: 1px solid var(--accent-blue); border-radius: 8px; padding: 14px 10px; text-align: center;">
+              <div style="font-size: 11px; color: var(--sky-blue); font-weight: 700; margin-bottom: 5px;">1. INPUT DATA</div>
+              <div style="color: var(--text-muted); font-size: 10px; line-height: 1.5;">EPA AQS + Open-Meteo<br/>181K rows · 2018–2025</div>
+            </div>
+            <div style="background: rgba(46,111,209,0.25); border: 1px solid var(--accent-blue); border-radius: 8px; padding: 14px 10px; text-align: center;">
+              <div style="font-size: 11px; color: var(--sky-blue); font-weight: 700; margin-bottom: 5px;">2. DATA CLEANING</div>
+              <div style="color: var(--text-muted); font-size: 10px; line-height: 1.5;">Missing audit<br/>6h interpolation<br/>UTC harmonization</div>
+            </div>
+            <div style="background: rgba(46,111,209,0.25); border: 1px solid var(--accent-blue); border-radius: 8px; padding: 14px 10px; text-align: center;">
+              <div style="font-size: 11px; color: var(--sky-blue); font-weight: 700; margin-bottom: 5px;">3. FEATURE ENG.</div>
+              <div style="color: var(--text-muted); font-size: 10px; line-height: 1.5;">Temporal lags (1–3h)<br/>Spatial lags<br/>VPD · Cyclic time</div>
+            </div>
+            <div style="background: rgba(126,200,227,0.15); border: 1px solid var(--sky-blue); border-radius: 8px; padding: 14px 10px; text-align: center;">
+              <div style="font-size: 11px; color: var(--highlight-yellow); font-weight: 700; margin-bottom: 5px;">4. CLIMATE SPLIT ★</div>
+              <div style="color: var(--text-muted); font-size: 10px; line-height: 1.5;">Train: 2018–24<br/>Val: 2020<br/>Test: 2025</div>
+            </div>
+          </div>
+          <!-- Arrow row -->
+          <div style="display: flex; justify-content: center; color: var(--accent-blue); font-size: 20px; margin: 6px 0;">↓</div>
+          <!-- Row 2: Steps 8-5 right to left (snake layout) -->
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+            <div style="background: rgba(255,215,0,0.1); border: 1px solid var(--highlight-yellow); border-radius: 8px; padding: 12px 8px; text-align: center;">
+              <div style="font-size: 11px; color: var(--highlight-yellow); font-weight: 700; margin-bottom: 5px;">8. OUTPUTS</div>
+              <div style="color: var(--text-muted); font-size: 10px; line-height: 1.5;">Leaderboard CSV<br/>.pkl pipeline<br/>Paper figures</div>
+            </div>
+            <div style="background: rgba(255,215,0,0.1); border: 1px solid var(--highlight-yellow); border-radius: 8px; padding: 12px 8px; text-align: center;">
+              <div style="font-size: 11px; color: var(--highlight-yellow); font-weight: 700; margin-bottom: 5px;">7. EVALUATION</div>
+              <div style="color: var(--text-muted); font-size: 10px; line-height: 1.5;">MAE · RMSE · R²<br/>Extreme-event slice<br/>24h vs Nowcast</div>
+            </div>
+            <div style="background: rgba(255,215,0,0.1); border: 1px solid var(--highlight-yellow); border-radius: 8px; padding: 12px 8px; text-align: center;">
+              <div style="font-size: 11px; color: var(--highlight-yellow); font-weight: 700; margin-bottom: 5px;">6. MODEL TRAINING</div>
+              <div style="color: var(--text-muted); font-size: 10px; line-height: 1.5;">Ridge · RF · LightGBM<br/>CatBoost · XGBoost<br/>GridSearchCV tuning</div>
+            </div>
+            <div style="background: rgba(255,71,87,0.12); border: 1px solid var(--highlight-red); border-radius: 8px; padding: 12px 8px; text-align: center;">
+              <div style="font-size: 11px; color: var(--highlight-red); font-weight: 700; margin-bottom: 5px;">5. LEAKAGE GUARD ★</div>
+              <div style="color: var(--text-muted); font-size: 10px; line-height: 1.5;">4h buffer Nowcast<br/>215h buffer 24h<br/>Train-only scaling</div>
+            </div>
+          </div><!-- /row2 grid -->
+        </div><!-- /diagram wrapper -->
+      </div><!-- /split-right -->
+    </div><!-- /split-layout -->
+  </div><!-- /slide 13 -->
+
+  <!-- ============================================================
+       SLIDE 18: MODEL EVALUATION / COMPARISON
+       ============================================================ -->
+  <div class="slide" data-slide="18">
+    <span class="slide-number">14 / 24</span>
+    <span class="section-tag">Steps 6 &amp; 7</span>
+    <h2 class="slide-title">Model Comparison</h2>
+    <div class="split-layout">
+      <div class="split-left" style="flex: 1.3;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>RMSE</th>
+              <th>MAE</th>
+              <th>R²</th>
+              <th>vs Baseline</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Linear Regression (Ridge)</td>
+              <td>14.24</td>
+              <td>9.21</td>
+              <td>0.8473</td>
+              <td>-0.0027</td>
+            </tr>
+            <tr>
+              <td>Random Forest</td>
+              <td>10.09</td>
+              <td>5.95</td>
+              <td>0.8595</td>
+              <td>+0.0095</td>
+            </tr>
+            <tr class="best-row">
+              <td>⭐ XGBoost</td>
+              <td>9.47</td>
+              <td>5.83</td>
+              <td>0.8711</td>
+              <td>+0.0211</td>
+            </tr>
+            <tr>
+              <td>LightGBM</td>
+              <td>9.48</td>
+              <td>6.06</td>
+              <td>0.8706</td>
+              <td>+0.0206</td>
+            </tr>
+            <tr>
+              <td style="color: var(--text-muted);">Baseline (Vu et al., 2022)</td>
+              <td style="color: var(--text-muted);">~9.70</td>
+              <td style="color: var(--text-muted);">~6.50</td>
+              <td style="color: var(--text-muted);">0.8500</td>
+              <td style="color: var(--text-muted);">reference</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="font-size: 12px; color: var(--sky-blue); font-weight: 600; margin: 10px 0 4px;">24H AHEAD FORECASTING — Persistence Collapse</p>
+        <table class="data-table" style="font-size: 13px;">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>R² (Nowcast 1h)</th>
+              <th>R² (24h Ahead)</th>
+              <th>Δ Drop</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="background: rgba(255,71,87,0.07);">
+              <td style="color: var(--text-muted);">Persistence (Naive)</td>
+              <td style="color: var(--off-white);">~0.85</td>
+              <td style="color: var(--highlight-red); font-weight: 700;">0.23</td>
+              <td style="color: var(--highlight-red);">▼ Collapsed</td>
+            </tr>
+            <tr class="best-row">
+              <td>⭐ XGBoost</td>
+              <td>0.8711</td>
+              <td style="color: var(--highlight-yellow); font-weight: 700;">~0.47</td>
+              <td style="color: var(--highlight-yellow);">▲ Robust</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="font-size: 13px; color: var(--text-muted); margin-top: 6px;"><strong style="color: var(--highlight-yellow);">Insight:</strong> XGBoost outperforms Baseline &amp; sustains 24h forecasting where Naive collapses.</p>
+      </div>
+      <div class="split-right" style="flex: 0.7;">
+        <div class="card" style="text-align: center;">
+          <div class="card-title">Baseline Paper</div>
+          <p style="font-size: 14px; color: var(--off-white); line-height: 1.6;">
+            Vu et al., 2022<br/>
+            <em>"Estimating surface PM2.5…"</em>
+          </p>
+          <div style="margin-top: 16px; padding: 12px; background: rgba(255, 215, 0, 0.08); border-radius: 8px; border: 1px solid rgba(255, 215, 0, 0.2);">
+            <p style="font-size: 22px; font-weight: 800; color: var(--highlight-yellow);">✓ Beaten</p>
+            <p style="font-size: 12px; color: var(--text-muted);">Using pure tabular ML</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 19: EXTREME SCENARIO ANALYSIS
+       ============================================================ -->
+  <div class="slide" data-slide="19">
+    <span class="slide-number">15 / 24</span>
+    <span class="section-tag">Step 7</span>
+    <h2 class="slide-title">Extreme-Event Scenario (Top 5% AQI)</h2>
+    <div class="split-layout">
+      <div class="split-left" style="flex: 0.45;">
+        <p style="font-size: 15px; line-height: 1.6; color: var(--off-white); margin-bottom: 12px;">Evaluated solely on the <strong>Top 5%</strong> extreme AQI slices.</p>
+        <table class="data-table" style="font-size: 13px; margin-bottom: 14px;">
+          <thead>
+            <tr>
+              <th>Model (Short-term Lag 1-3h)</th>
+              <th>$R^2$</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="best-row">
+              <td>⭐ Persistence (Naive)</td>
+              <td style="font-weight: bold;">0.3004</td>
+            </tr>
+            <tr>
+              <td>Linear Ridge</td>
+              <td>0.1588</td>
+            </tr>
+            <tr>
+              <td>LightGBM</td>
+              <td>0.1434</td>
+            </tr>
+            <tr style="background: rgba(255,71,87,0.07);">
+              <td style="color: var(--text-muted);">XGBoost</td>
+              <td style="color: var(--highlight-red);">0.0396</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="highlight" style="padding: 10px; font-size: 14px;">
+          <span class="hl-label">Surprise:</span> Persistence wins. XGBoost drops.
+        </div>
+        <p style="font-size: 14px; line-height: 1.5; color: var(--text-muted); margin-top: 10px;"><strong style="color: var(--white);">Insight:</strong> Short-term PM2.5 is highly autocorrelated.</p>
+      </div>
+      <div class="split-right" style="flex: 0.55;">
+        <div class="image-container">
+          <img src="../data/plots/dashboard_creek_fire_extreme.png"
+               alt="Creek Fire 2020 — Models vs Actual AQI (Live Dashboard)"
+               style="max-width: 100%; border-radius: 10px;" />
+          <p class="image-caption" style="max-width: 95%;">
+            <strong style="color: var(--highlight-red);">Creek Fire 2020 (Live Dashboard):</strong>
+            Actual AQI spiked to <strong>390 (Hazardous)</strong> — both XGBoost &amp; Linear Ridge predicted only ~150–200.
+            Models severely <strong>underestimate</strong> top 5% extreme wildfire peaks.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 20: PREDICTED VS ACTUAL
+       ============================================================ -->
+  <div class="slide" data-slide="20">
+    <span class="slide-number">16 / 24</span>
+    <span class="section-tag">Step 8 — Diagnostics</span>
+    <h2 class="slide-title">Prediction Diagnostics (Predicted vs Actual)</h2>
+    <div class="image-container" style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding-top: 20px;">
+      <img src="../data/plots/paper_lightgbm_predicted_vs_actual.png" alt="LightGBM Predicted vs Actual" style="max-height: 55vh; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+      <p class="image-caption" style="margin-top: 20px; font-size: 16px; max-width: 900px;">Visualizing <strong>LightGBM</strong> predictions against actual AQI. <strong style="color: var(--highlight-yellow);">Insight:</strong> The model successfully captures the general trend and central ranges but exhibits some variance at extreme high-end peaks.</p>
+    </div>
+  </div>
+
+
+
+  <!-- ============================================================
+       SLIDE 21: CONCLUSION
+       ============================================================ -->
+  <div class="slide" data-slide="21">
+    <span class="slide-number">16 / 24</span>
+    <span class="section-tag">Step 10</span>
+    <h2 class="slide-title">Conclusion</h2>
+    <ol class="numbered-list">
+      <li><strong>RQ1:</strong> Tabular ML models achieve robust accuracy ($R^2 = 0.8711$) under a strict leakage-safe protocol.</li>
+      <li><strong>RQ2:</strong> Short-term predictions rely on recent local history; 24h forecasting forces models to rely on climate-context (VPD) — Persistence collapses ($R^2 = 0.23$).</li>
+      <li><strong>RQ3:</strong> Models face stability issues during top 5% extreme events; VPD &amp; spatial lags provide vital physical context but modest global metric gains.</li>
+    </ol>
+    <div class="highlight" style="margin-top: 14px;">
+      <span class="hl-label">Prediction Diagnostics (Step 8):</span> XGBoost captures central AQI ranges well but tends to <strong>underestimate</strong> rare hazardous peaks — confirmed by Actual vs Predicted diagnostic plot.
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 22: AI REFLECTION & HALLUCINATIONS
+       ============================================================ -->
+  <div class="slide" data-slide="22">
+    <span class="slide-number">17 / 24</span>
+    <span class="section-tag">AI Audit</span>
+    <h2 class="slide-title">AI Audit Log &amp; Human Delta</h2>
+    <p style="font-size: 15px; color: var(--text-muted); margin-bottom: 12px;">2 Excel Audit Logs provided (Tracking &gt; 20 prompts by Minh &amp; Sang).</p>
+    <div class="highlight highlight-red" style="margin-bottom: 6px;">
+      <span class="hl-label">Top 3 AI Hallucinations Caught (From Audit Logs):</span>
+    </div>
+    <ol class="numbered-list" style="font-size: 15px;">
+      <li><strong>Logic Error (Entry #008):</strong> AI confidently suggested using current PM2.5/PM10 proxy columns as features. $\rightarrow$ <em style="color: var(--highlight-red);">Rejected:</em> Target Leakage risk. Fixed by building a strict leakage audit script.</li>
+      <li><strong>Stale Artifact Risk (Entry #014):</strong> AI claimed all generated notebook figures and metrics were perfect and ready to use. $\rightarrow$ <em style="color: var(--highlight-red);">Rejected:</em> Manual check found missing plots and stale numbers. Fixed manually.</li>
+      <li><strong>Oversimplification (Entry #016):</strong> AI claimed VPD strongly improves accuracy. $\rightarrow$ <em style="color: var(--highlight-red);">Rejected:</em> Ablation study showed removing VPD changed $R^2$ by &lt;0.001. Fixed by rewording VPD as a "dryness context feature."</li>
+    </ol>
+    <div class="highlight" style="margin-top: 8px;">
+      <span class="hl-label">Key Takeaway:</span> Domain Knowledge drives the architecture; AI is merely an execution assistant.
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 23: LIMITATIONS & FUTURE DIRECTIONS
+       ============================================================ -->
+  <div class="slide" data-slide="23">
+    <span class="slide-number">18 / 24</span>
+    <span class="section-tag">Future Work</span>
+    <h2 class="slide-title">Limitations &amp; Future Directions</h2>
+    <div class="split-layout">
+      <div class="split-left" style="flex: 0.5; background: var(--card-bg); padding: 30px; border-radius: 12px; border: 1px solid rgba(255, 71, 87, 0.3);">
+        <h3 style="color: var(--highlight-red); margin-bottom: 20px; font-size: 22px;">Current Limitations</h3>
+        <ul class="bullet-list" style="font-size: 16px; margin-bottom: 0;">
+          <li style="margin-bottom: 12px;"><strong>Satellite Data Absence:</strong> Pure tabular models lack spatial awareness of smoke plume trajectories.</li>
+          <li style="margin-bottom: 12px;"><strong>24h Forecasting Decay:</strong> Model accuracy drops significantly for 24-hour horizons compared to 1-3h nowcasting.</li>
+          <li><strong>Extreme Peak Underestimation:</strong> XGBoost struggles to predict the absolute top 5% of hazardous spikes.</li>
+        </ul>
+      </div>
+      <div class="split-right" style="flex: 0.5; background: var(--card-bg); padding: 30px; border-radius: 12px; border: 1px solid rgba(255, 215, 0, 0.3);">
+        <h3 style="color: var(--highlight-yellow); margin-bottom: 20px; font-size: 22px;">Future Directions</h3>
+        <ul class="bullet-list" style="font-size: 16px; margin-bottom: 0;">
+          <li style="margin-bottom: 12px;"><strong>Aerosol Optical Depth (AOD):</strong> Integrate NASA/NOAA satellite AOD data to capture smoke movement.</li>
+          <li style="margin-bottom: 12px;"><strong>Deep Learning Architecture:</strong> Implement Spatio-Temporal Graph Neural Networks (ST-GNN) to replace tabular ML.</li>
+          <li><strong>IoT Alert System:</strong> Enhance the live dashboard to push automated SMS/Email alerts for Air Stagnation events.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 24: Q&A
+       ============================================================ -->
+  <div class="slide qa-slide" data-slide="24">
+    <span class="slide-number">19 / 24</span>
+    <div class="qa-title">Thank You &amp; Q&amp;A</div>
+    <div class="cover-divider"></div>
+    <p style="font-size: 18px; color: var(--text-muted); margin-bottom: 24px;">
+      Jupyter Notebooks &amp; SQL Data are ready for review.
+    </p>
+    <a href="https://starlink.tail334064.ts.net/" target="_blank" class="qa-link">
+      🚀 Live Demo: starlink.tail334064.ts.net
+    </a>
+  </div>
+
+</div><!-- /presentation -->
+
+<!-- Navigation Controls -->
+<div class="nav-controls">
+  <button class="nav-btn" id="prevBtn" onclick="changeSlide(-1)" aria-label="Previous Slide">◀</button>
+  <span class="slide-counter" id="slideCounter">1 / 19</span>
+  <button class="nav-btn" id="nextBtn" onclick="changeSlide(1)" aria-label="Next Slide">▶</button>
+</div>
+
+<div class="keyboard-hint">
+  <kbd class="kbd">←</kbd> <kbd class="kbd">→</kbd> or <kbd class="kbd">Space</kbd> to navigate
+</div>
+
+<script>
+  // ============================================================
+  // PRESENTATION ENGINE
+  // ============================================================
+  const slides = document.querySelectorAll('.slide');
+  const totalSlides = slides.length;
+  let currentSlide = 1;
+
+  function showSlide(n) {
+    if (n < 1 || n > totalSlides) return;
+    slides.forEach(s => s.classList.remove('active'));
+    currentSlide = n;
+    slides[n - 1].classList.add('active');
+    document.getElementById('slideCounter').textContent = `${n} / ${totalSlides}`;
+    document.getElementById('progressBar').style.width = `${(n / totalSlides) * 100}%`;
+    // Update URL hash for bookmarking
+    history.replaceState(null, null, `#slide-${n}`);
+  }
+
+  function changeSlide(delta) {
+    showSlide(currentSlide + delta);
+  }
+
+  // Keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    switch (e.key) {
+      case 'ArrowRight':
+      case 'ArrowDown':
+      case ' ':
+      case 'PageDown':
+        e.preventDefault();
+        changeSlide(1);
+        break;
+      case 'ArrowLeft':
+      case 'ArrowUp':
+      case 'PageUp':
+        e.preventDefault();
+        changeSlide(-1);
+        break;
+      case 'Home':
+        e.preventDefault();
+        showSlide(1);
+        break;
+      case 'End':
+        e.preventDefault();
+        showSlide(totalSlides);
+        break;
+    }
+  });
+
+  // Touch/Swipe support
+  let touchStartX = 0;
+  document.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; });
+  document.addEventListener('touchend', (e) => {
+    const diff = touchStartX - e.changedTouches[0].screenX;
+    if (Math.abs(diff) > 60) {
+      changeSlide(diff > 0 ? 1 : -1);
+    }
+  });
+
+  // Hash-based slide restore
+  const hash = window.location.hash;
+  if (hash && hash.startsWith('#slide-')) {
+    const n = parseInt(hash.replace('#slide-', ''));
+    if (n >= 1 && n <= totalSlides) showSlide(n);
+  }
+
+  // Initialize progress bar
+  document.getElementById('progressBar').style.width = `${(1 / totalSlides) * 100}%`;
+
+  // Fix slide-number spans dynamically to match actual total
+  document.querySelectorAll('.slide-number').forEach((el, i) => {
+    el.textContent = `${String(i + 1).padStart(2, '0')} / ${totalSlides}`;
+  });
+</script>
+</body>
+</html>

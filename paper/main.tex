@@ -1,168 +1,186 @@
-\documentclass[runningheads]{llncs}
+%%% Springer Nature Journal Template (sn-jnl.cls)
+%%% Converted from LNCS (llncs) format
 
-\usepackage[T1]{fontenc}
-\usepackage{cite}
-\usepackage{amsmath,amssymb,amsfonts}
+\documentclass[pdflatex,sn-mathphys-num]{sn-jnl}
+
+%%% Standard Packages
 \usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{amsthm}
+\usepackage{mathrsfs}
+\usepackage{xcolor}
+\usepackage{textcomp}
 \usepackage{booktabs}
 \usepackage{array}
 \usepackage{url}
-\usepackage{xcolor}
-\usepackage{float}
-\usepackage[section]{placeins}
 \usepackage{caption}
+\geometry{top=24mm,bottom=24mm,left=24mm,right=24mm}
 
-\captionsetup{font=small}
-\hbadness=10000
-\hfuzz=13pt
+\raggedbottom
+
+\renewcommand\topfraction{.95}
+\renewcommand\bottomfraction{.95}
+\renewcommand\textfraction{.05}
+\renewcommand\floatpagefraction{.90}
+\setlength{\floatsep}{8pt plus 2pt minus 2pt}
+\setlength{\textfloatsep}{10pt plus 2pt minus 2pt}
+\setlength{\intextsep}{8pt plus 2pt minus 2pt}
+\setlength{\abovecaptionskip}{4pt}
+\setlength{\belowcaptionskip}{4pt}
+
+\setlength{\floatsep}{6pt plus 2pt minus 2pt}
+\setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
+\setlength{\intextsep}{6pt plus 2pt minus 2pt}
+\setlength{\abovecaptionskip}{3pt}
+\setlength{\belowcaptionskip}{3pt}
+
 
 \begin{document}
 
-\title{Comparative US AQI Time Series Forecasting in California with Extreme-Event and Climate-Context Evaluation}
-\titlerunning{Comparative US AQI Time Series Forecasting in California}
-\author{Ta Nguyen Anh Minh \and Thu Le \and Trinh Quoc Sang}
-\authorrunning{T. N. A. Minh \and T. Le \and T. Q. Sang}
-\institute{FPT University, Ho Chi Minh City, Vietnam \\
-\email{taminh123xt@gmail.com, thulvm@fpt.edu.vn, trinhquocsang1@gmail.com}}
+\title[Comparative US AQI Time Series Forecasting in California]{Comparative US AQI Time Series Forecasting in California with Extreme-Event and Climate-Context Evaluation}
+
+\author*[1]{\fnm{Nguyen Anh Minh} \sur{Ta}}\email{taminh123xt@gmail.com}
+\author[1]{\fnm{Thu} \sur{Le}}\email{thulvm@fpt.edu.vn}
+\author[1]{\fnm{Quoc Sang} \sur{Trinh}}\email{trinhquocsang1@gmail.com}
+\author[1]{\fnm{Nhat-Tung} \sur{Le}}\email{tungln4@fpt.edu.vn}
+
+\affil*[1]{\orgname{FPT University}, \orgaddress{\city{Ho Chi Minh City}, \country{Vietnam}}}
+
+\abstract{California hourly Air Quality Index (AQI) dynamics exhibit strong short-term autocorrelation alongside sudden volatility during wildfire seasons. Standard annual averages mask model vulnerabilities during severe pollution spikes. We benchmark five tabular regressors and two baselines across 181,122 hourly records (2018--2025). A chronological split reserves the smoke-heavy 2020 season for validation, evaluating nowcasting and 24-hour forecasting on the 2025 holdout set. XGBoost achieves top $R^2$ scores of 0.8711 (short-term) and 0.4648 (24-hour). Scenario slicing shows machine learning performance degrades sharply during upper-tail extremes, where persistence baselines match or beat complex models. Feature ablations show engineered vapor pressure deficit (VPD) and spatial lags offer marginal standalone accuracy gains. We operationalize these findings in a real-time early warning dashboard.}
+
+\keywords{US AQI forecasting, PM2.5, California, time-series regression, climate-context evaluation, vapor pressure deficit, spatial lag, XGBoost, extreme-event analysis}
+
 \maketitle
+\fontsize{12.5pt}{16.5pt}\selectfont
 
-\begin{abstract}
-Forecasting hourly US Air Quality Index (AQI) in California is difficult, because the series reacts to urban emissions, regional meteorology, marine influence, and seasonal wildfire smoke transport. The task is highly autocorrelated in the short term but highly volatile during upper-tail pollution episodes, so a model evaluated only on global test-year metrics may overestimate true operational reliability. We propose a rigorous time-series benchmark using a merged panel of 181,122 observations from 2018--2025, evaluated under a climate-context-aware temporal split that isolates the extreme 2020 season for validation. Five tabular regressors are compared against two naive baselines under short-term nowcasting and strict 24-hour-ahead forecasting configurations. 
-Against these baselines, XGBoost recovers a strong advantage in the short term, reaching an $R^2$ of 0.8711, and leads the 24-hour horizon with an $R^2$ of 0.4648. However, extreme-event scenario evaluation shows that machine learning models struggle to reliably anticipate rare upper-tail AQI behavior beyond simply copying the most recent observation. An ablation shows that engineered vapor pressure deficit (VPD) and spatial AQI lags provide only modest standalone improvements to global metrics. Every number is produced by executed code.
+\section{Introduction}\label{sec:introduction}
+Accurate air quality forecasts guide public health warnings and environmental regulation. In California, complex interactions between urban emissions, marine air masses, terrain, and wildfire smoke make hourly AQI prediction difficult. Models performing well under typical conditions often fail during severe pollution episodes. Random data splits also introduce severe temporal leakage due to autocorrelation.
 
-\keywords{US AQI forecasting \and PM2.5 \and California \and time-series regression \and climate-context evaluation \and vapor pressure deficit \and spatial lag \and LightGBM \and extreme-event analysis}
-\end{abstract}
+This study benchmarks tabular machine learning models on a multi-city California dataset, addressing two main questions. First, how do gradient boosting and linear models perform when shifting from short-term nowcasting to a strict 24-hour horizon? Second, do these models maintain reliability when evaluated on isolated extreme events rather than full-year averages?
 
-\section{Introduction}
-Air quality forecasting is important for public-health communication, environmental monitoring, and operational warning systems. In California, AQI dynamics are especially challenging because urban emissions, regional meteorology, marine influence, topography, wildfire seasons, and smoke transport can interact over multiple temporal scales. A forecasting system that performs well on ordinary days may still fail during upper-tail pollution episodes, while a model that appears strong under random validation may be overestimated because neighboring time points are highly autocorrelated.
+We present four key contributions. First, we construct a 181,122-record hourly panel combining EPA AQS observations and Open-Meteo weather fields \cite{epa_aqs,epa_aqs_api}. Second, we enforce a climate-aware temporal split reserving 2020 for wildfire-context validation and 2025 for final testing. Third, we test physically motivated features, including vapor pressure deficit (VPD) and cross-station spatial lags. Fourth, we combine global metrics with scenario stress tests and deploy an interactive alert dashboard.
 
-This paper studies comparative US AQI time-series forecasting for California using a reproducible hourly panel. The analysis is designed around two questions. First, how well do common tabular machine-learning models forecast AQI under a near-term autoregressive setting and a stricter 24-hour-ahead setting? Second, how stable are these models under climate-context and extreme-event evaluation, rather than only global test-year metrics?
+\section{Related Work}\label{sec:related-work}
+Air quality forecasting traditionally relied on statistical autoregressive models. While interpretable, linear methods struggle with complex weather interactions. Tabular machine learning provides flexible alternatives. Random Forest offers robust bagging-based ensemble predictions \cite{breiman2001random}, whereas gradient-boosted decision trees—XGBoost, LightGBM, and CatBoost—capture non-linear environmental thresholds \cite{chen2016xgboost,ke2017lightgbm,prokhorenkova2018catboost}. Spatial lag features from adjacent monitoring sites also enhance regional inference \cite{zheng2013uair}.
 
-The contributions are fourfold. First, the paper constructs a California AQI benchmark using harmonized EPA AQS and Open-Meteo records \cite{epa_aqs,epa_aqs_api}. Second, it uses a temporal split that reserves 2020 as an extreme/wildfire-context validation year and 2025 as an independent final test year. Third, it introduces physically interpretable engineered context features, including VPD as an engineered dryness feature and cross-station spatial AQI lags. Fourth, it evaluates the benchmark using leaderboard metrics, scenario slices, ablation testing, and an explicit extreme-event diagnostic. The interpretation is intentionally conservative: engineered physical features are analyzed as contextual signals, not as proven causal drivers of model improvement unless supported by ablation evidence.
+For wildfire PM2.5 estimation, Vu et al.\ \cite{vu2022geostationary} modeled the 2018 California Camp Fire using a weighted Random Forest. Merging AQS monitors, PurpleAir sensors, GOES-16 satellite data, and HRRR meteorology with SMOTE oversampling, they achieved an out-of-bag $R^2$ of 0.92 and a temporal cross-validation $R^2$ of 0.85. Their results show the value of combining ground and satellite data during extreme smoke events. We build on their work by incorporating engineered dryness metrics and spatial lags into a multi-year AQI forecasting panel.
 
-\section{Related Work}
-Air-quality forecasting has historically used statistical time-series methods such as autoregression and linear regression. These methods are interpretable and often competitive when pollutant persistence is strong, but they may struggle with nonlinear pollutant-meteorology interactions. Modern tabular machine-learning methods provide greater flexibility. Random Forest is a strong bagging-based baseline for nonlinear regression \cite{breiman2001random}, while gradient-boosted decision-tree models such as XGBoost, LightGBM, and CatBoost are widely used for structured environmental data because they can capture threshold effects and heterogeneous feature interactions \cite{chen2016xgboost,ke2017lightgbm,prokhorenkova2018catboost}. Urban air-quality inference work has also emphasized the role of spatial context from nearby monitoring sites \cite{zheng2013uair}.
+Validation design remains critical. Random cross-validation leaks temporal information across adjacent hours, inflating performance \cite{bergmeir2018note,roberts2017crossvalidation}. We prevent this by enforcing strict chronological splits and isolating the extreme 2020 wildfire season for validation.
 
-Evaluation design is equally important. For time-series data, random splitting can leak temporal information because nearby observations share lagged pollutant states, weather regimes, and seasonal context. Time-aware validation is therefore preferred when the goal is operational generalization \cite{bergmeir2018note,roberts2017crossvalidation}. This project follows that principle by separating training, validation, and test periods chronologically, while also using 2020 as a validation year because it contains substantial extreme-AQI context.
+\section{Dataset and Exploratory Analysis}\label{sec:dataset}
+\subsection{Study Area and Data Sources}\label{subsec:study-area}
+The dataset covers Fresno, Los Angeles, and San Jose, pairing EPA AQS monitoring logs with Open-Meteo meteorological and AQI variables. The target variable, \texttt{target\_aqi}, is a PM2.5-derived AQI proxy. Raw PM2.5 and PM10 proxy features are removed to prevent direct target leakage.
 
-\section{Dataset and Exploratory Analysis}
-\subsection{Study Area and Data Sources}
-The dataset covers Fresno, Los Angeles, and San Jose, combining EPA AQS monitoring records with Open-Meteo supplemental meteorological and AQI-related variables. The modeling target, \texttt{target\_aqi}, is a PM2.5-derived AQI proxy after harmonization and alignment. Current PM2.5 and PM10 proxy variables are excluded from the feature matrix to avoid direct target proxy leakage.
-
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.58\linewidth]{figures/paper_station_map.png}
-    \caption{Spatial coverage of the California AQI panel dataset. The figure is included as a static paper asset and is not regenerated by the current figure-generation script.}
+    \includegraphics[width=0.65\linewidth]{figures/paper_station_map.png}
+    \caption{Spatial coverage of the California AQI panel dataset.}
     \label{fig:station-map}
 \end{figure}
-\FloatBarrier
 
-After preprocessing, the model-ready table contains 181,122 hourly records and 21 base columns before scenario-specific lag expansion. The observed target distribution is right-skewed: the mean AQI is approximately 54.79, the median is approximately 54.54, the 95th percentile is 97.21, and the 99th percentile is 151.84. This upper-tail behavior motivates separate scenario and extreme-event evaluation rather than relying only on full-year average errors.
+Preprocessing yields 181,122 hourly records with 21 base attributes prior to lag expansion. The target distribution displays strong right-skewness: mean AQI is 54.79, median is 54.54, the 95th percentile reaches 97.21, and the 99th percentile hits 151.84. This heavy tail requires scenario evaluation rather than relying solely on global error averages.
 
-\subsection{Exploratory Correlation Structure}
-The exploratory analysis shows that PM2.5 is the strongest direct correlate of the AQI proxy, while meteorological variables provide weaker but meaningful context. Wind speed tends to be negatively associated with AQI, consistent with dispersion effects, although correlation is not evidence of causality. The correlation heatmap is used as a diagnostic overview, not as a feature-selection proof.
+\subsection{Exploratory Correlation Structure}\label{subsec:correlation}
+Exploratory analysis confirms PM2.5 as the primary direct correlate of target AQI. Weather attributes provide secondary context; wind speed correlates negatively with AQI due to atmospheric dispersion. Figure~\ref{fig:correlation-heatmap} displays these relationships.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.82\linewidth]{figures/paper_correlation_heatmap_en.png}
+    \includegraphics[width=0.78\linewidth]{figures/paper_correlation_heatmap_en.png}
     \caption{Pearson correlation heatmap for selected AQI, pollutant, and meteorological variables in the model-ready California panel.}
     \label{fig:correlation-heatmap}
 \end{figure}
-\FloatBarrier
 
-\section{Feature Engineering}
-\subsection{Engineered Dryness Feature: VPD}
-Vapor pressure deficit is included as an engineered dryness feature. It summarizes atmospheric moisture demand by comparing saturation vapor pressure with actual vapor pressure, following standard agro-meteorological formulations \cite{allen1998crop}. VPD is also widely used as a physically interpretable indicator of atmospheric dryness and plant-water stress \cite{grossiord2020plant}. In this paper, VPD is not presented as a feature that is proven to improve model accuracy by itself; instead, it is treated as a physically interpretable dryness context variable that can help describe seasonal and meteorological conditions.
+\section{Feature Engineering}\label{sec:feature-engineering}
+\subsection{Engineered Dryness Feature: VPD}\label{subsec:vpd}
+We compute Vapor Pressure Deficit (VPD) to quantify atmospheric moisture demand by comparing saturation and actual vapor pressure \cite{allen1998crop}. VPD indicates atmospheric dryness and plant water stress \cite{grossiord2020plant}. We evaluate VPD as a physical context variable rather than assuming prior accuracy gains.
 
-Given temperature $T$ in degrees Celsius and relative humidity $\mathrm{RH}$ in percent, saturation vapor pressure is computed as
+Given temperature $T$ ($^\circ\text{C}$) and relative humidity $\mathrm{RH}$ (\%), saturation vapor pressure is
 \begin{equation}
     e_s(T)=0.6108 \exp\left(\frac{17.27T}{T+237.3}\right).
     \label{eq:saturation-vapor-pressure}
 \end{equation}
-Actual vapor pressure is computed as
+Actual vapor pressure is
 \begin{equation}
     e_a(T,\mathrm{RH})=\frac{\mathrm{RH}}{100}e_s(T).
     \label{eq:actual-vapor-pressure}
 \end{equation}
-The engineered VPD feature is then
+The engineered VPD feature is
 \begin{equation}
     \mathrm{VPD}=\max\left(e_s(T)-e_a(T,\mathrm{RH}),0\right).
     \label{eq:vpd}
 \end{equation}
 
-The exploratory notebook recomputes VPD from the model-ready meteorological variables and produces a monthly diagnostic plot. This diagnostic is used to verify that the engineered dryness signal follows plausible seasonal structure before it is used in the forecasting feature set.
+Our exploratory code recomputes VPD from meteorological variables and generates a monthly diagnostic plot. This diagnostic verifies that the engineered dryness signal follows plausible seasonal structure before inclusion in the feature set.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.74\linewidth]{figures/07_vpd_monthly_diagnostic.png}
-    \caption{Monthly diagnostic of recomputed VPD, used to inspect seasonal dryness structure in the AQI panel.}
+    \includegraphics[width=0.82\linewidth]{figures/07_vpd_monthly_diagnostic.png}
+    \caption{Monthly diagnostic of recomputed VPD, inspecting seasonal dryness structure in the AQI panel.}
     \label{fig:vpd-diagnostic}
 \end{figure}
-\FloatBarrier
 
-\subsection{Temporal and Spatial Lag Features}
-Temporal lag features encode recent and day-prior AQI states. For station $s$ at target time $t$, a local lag feature is represented as
+\subsection{Temporal and Spatial Lag Features}\label{subsec:lag-features}
+Temporal lag features encode recent and day-prior AQI states. For station $s$ at target time $t$, a local lag feature is
 \begin{equation}
     \mathrm{Lag}_{s,k}(t)=y_{s,t-k},
     \label{eq:local-lag}
 \end{equation}
-where $k$ is the lag horizon in hours. Spatial lag features summarize delayed AQI information from other stations or city-level sources:
+where $k$ is the lag horizon in hours. Spatial lag features summarize delayed AQI information from other stations:
 \begin{equation}
     \mathrm{SpatialLag}_{s,k}(t)=
     \frac{1}{|\mathcal{N}(s)|}\sum_{j \in \mathcal{N}(s)} y_{j,t-k}.
     \label{eq:spatial-lag}
 \end{equation}
-These features are intended to provide transport-related context. Their value is tested empirically in the ablation study rather than assumed.
+These features provide transport-related context, and their predictive value is tested empirically in our ablation study.
 
-Additional engineered features include cyclic hour/month encodings, wind-vector decomposition, dry-heat interaction terms, dry-wind interaction terms, temperature-humidity ratios, and wind-speed-pressure ratios. Categorical station/source identifiers are retained for model families that can use categorical or one-hot encoded inputs.
+Additional features include cyclic hour/month encodings, wind-vector decomposition, dry-heat interaction terms, dry-wind interaction terms, temperature-humidity ratios, and wind-speed-pressure ratios. Categorical station identifiers are retained for model families supporting categorical or one-hot encoded inputs.
 
-\section{Methodology}
-\subsection{Pipeline Overview}
-The end-to-end workflow transforms raw monitoring and meteorological records into a leak-audited supervised learning benchmark. The pipeline includes data harmonization, feature engineering, chronological splitting, model training, leaderboard evaluation, scenario analysis, and ablation testing.
+\section{Methodology}\label{sec:methodology}
+\subsection{Pipeline Overview}\label{subsec:pipeline}
+Our workflow converts monitoring logs and weather inputs into a benchmark free of temporal leakage. Key stages include data harmonization, feature generation, chronological partitioning, model training, leaderboard scoring, scenario analysis, and ablation testing.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.82\linewidth]{figures/paper_workflow_pipeline_architecture.jpg}
-    \caption{AQI forecasting pipeline architecture used in this study. The figure summarizes the conversion of EPA AQS and Open-Meteo records into leak-controlled training, validation, testing, and evaluation outputs.}
+    \includegraphics[width=0.78\linewidth]{figures/paper_workflow_pipeline_architecture.jpg}
+    \caption{AQI forecasting pipeline architecture.}
     \label{fig:pipeline-architecture}
 \end{figure}
-\FloatBarrier
 
-\subsection{Forecasting Tasks}
-For each station or source $s$ and target timestamp $t$, the supervised learning task is
+\subsection{Forecasting Tasks}\label{subsec:forecasting-tasks}
+For station $s$ and target time $t$, the forecasting task is formulated as
 \begin{equation}
     \hat{y}_{s,t+h}=f(\mathbf{x}_{s,t}),
     \label{eq:forecasting-task}
 \end{equation}
-where $\hat{y}_{s,t+h}$ is the predicted AQI, $h$ is the forecast horizon, and $\mathbf{x}_{s,t}$ contains meteorological variables, temporal encodings, categorical identifiers, engineered dryness features, lagged AQI features, and allowed spatial context.
+where $\hat{y}_{s,t+h}$ is predicted AQI at horizon $h$, and $\mathbf{x}_{s,t}$ contains weather features, calendar encodings, station IDs, VPD, lagged AQI, and allowed spatial context.
 
-Two configurations are evaluated. The short-term autoregressive setting predicts near-term AQI using recent local AQI lags from 1--3 hours. This setting is close to operational nowcasting and is expected to benefit strongly from temporal persistence. The long-term 24-hour setting predicts AQI one day ahead. It does not use local AQI from $t-1$ to $t-23$. The model must rely on weather, calendar structure, VPD, spatial lags, and day-prior or older local AQI information.
+We evaluate two configurations:
+\begin{enumerate}
+    \item \textbf{Short-term nowcasting}: Uses recent local lags (1--3 hours), leveraging strong temporal autocorrelation.
+    \item \textbf{24-hour forecasting}: Excludes local AQI from $t-1$ to $t-23$, forcing models to rely on weather, calendar cycles, VPD, spatial lags, and day-prior AQI.
+\end{enumerate}
 
-\subsection{Data Splitting Strategy}
-The split is chronological and climate-context-aware rather than random. Random splitting is inappropriate for this problem because adjacent hourly observations share pollutant persistence, lag features, meteorological regimes, and station-specific seasonal structure. Mixing neighboring observations across train and test sets would overstate generalization.
+\subsection{Data Splitting Strategy}\label{subsec:data-split}
+We enforce a chronological split to prevent temporal leakage. Random partitioning leaks lagged states and weather patterns across sets, artificially inflating performance. Table~\ref{tab:data-split} outlines the split structure.
 
-\begin{table}[H]
-\centering
-\caption{Chronological data split used for model selection and final evaluation.}
-\label{tab:data-split}
-\begin{tabular}{>{\raggedright\arraybackslash}p{0.16\linewidth}
-                >{\raggedright\arraybackslash}p{0.28\linewidth}
-                >{\raggedright\arraybackslash}p{0.46\linewidth}}
+\begin{table}[htbp]
+\caption{Chronological data split used for model selection and evaluation.}\label{tab:data-split}
+\begin{tabular*}{\textwidth}{@{\extracolsep\fill}lll}
 \toprule
 Partition & Years & Role and rationale \\
 \midrule
-Training & 2018, 2019, 2021--2024 & Fit model parameters using multiple non-test years. \\
-Validation & 2020 & Tune and compare models on an extreme/wildfire-context year. \\
-Test & 2025 & Final independent holdout year for reported performance. \\
-\bottomrule
-\end{tabular}
+Training & 2018, 2019, 2021--2024 & Model parameter fitting. \\
+Validation & 2020 & Model selection under wildfire extremes. \\
+Test & 2025 & Final independent performance reporting. \\
+\botrule
+\end{tabular*}
 \end{table}
-\FloatBarrier
 
-The 2020 validation year is intentionally separated from training because it contains the highest concentration of extreme-AQI hours in the dataset and therefore provides a stress-oriented model-selection context. The 2025 test year is held out until final evaluation and is treated as the independent reporting year.
+Isolating 2020 creates a high-smoke validation environment (August Complex fires). Unprecedented rainfall in 2022--2023 produced unusually clean air; training without extreme validation risks underestimating severe events. The 2025 test set (including the Palisades Fire) acts as the final holdout.
 
-\subsection{Chronological Boundary Leakage Guard}
-Because lagged features can cross partition boundaries, the pipeline applies a chronological boundary leakage guard. A record is allowed only when the temporal distance from a partition boundary is at least the scenario-specific guard:
+\subsection{Chronological Boundary Leakage Guard}\label{subsec:leakage-guard}
+To prevent lag features from crossing split boundaries, we enforce a temporal buffer $G_h$:
 \begin{equation}
     \Delta t_{\mathrm{boundary}} \geq G_h,
     \qquad
@@ -173,18 +191,18 @@ Because lagged features can cross partition boundaries, the pipeline applies a c
     \end{cases}
     \label{eq:boundary-guard}
 \end{equation}
-The leakage audit also confirms that future-like feature names and current PM2.5/PM10 proxy variables are absent from the model feature matrix.
+Audit checks verify that target proxies and future features are excluded.
 
-\subsection{Models and Metrics}
-Five machine learning models are evaluated: Linear Ridge, Random Forest, LightGBM, CatBoost, and XGBoost. Linear Ridge provides a regularized linear baseline. Random Forest represents bagging-based nonlinear learning. LightGBM, CatBoost, and XGBoost represent gradient-boosted decision-tree families. CatBoost receives categorical station/source identifiers natively; the other models use train-only preprocessing for categorical encoding and scaling where applicable.
+\subsection{Models and Metrics}\label{subsec:models-metrics}
+We benchmark five regressors: Linear Ridge, Random Forest, LightGBM, CatBoost, and XGBoost. CatBoost processes categorical station IDs natively, while other models use train-set scaling and encoding.
 
-Additionally, two naive operational baselines are included to ground the results:
+Two operational baselines benchmark performance:
 \begin{itemize}
-    \item \textbf{Persistence}: Predicts the AQI will remain exactly the same as the most recent available observation (e.g., $t-1$ for short-term nowcasting, and $t-24$ for long-term forecasting).
-    \item \textbf{Climatology}: Predicts the historical mean AQI for a given hour-of-day and month, learned from the training set.
+    \item \textbf{Persistence}: Projects the last available observation ($t-1$ for short-term, $t-24$ for long-term).
+    \item \textbf{Climatology}: Predicts historical mean AQI per hour-of-day and month from the training set.
 \end{itemize}
 
-Performance is reported with mean absolute error (MAE), root mean squared error (RMSE), and coefficient of determination ($R^2$):
+Evaluation metrics include Mean Absolute Error (MAE), Root Mean Squared Error (RMSE), and $R^2$:
 \begin{equation}
     \mathrm{MAE}=\frac{1}{n}\sum_{i=1}^{n}|y_i-\hat{y}_i|,
     \label{eq:mae}
@@ -198,38 +216,47 @@ Performance is reported with mean absolute error (MAE), root mean squared error 
     \label{eq:r2}
 \end{equation}
 
-\section{Results and Discussion}
-\subsection{Overall Leaderboard}
-The 2025 test-year leaderboard shows a clear difference between near-term and 24-hour forecasting. Short-term nowcasting produces high $R^2$ values for all models, while 24-hour forecasting is substantially harder.
+\subsection{System Architecture and Deployment}\label{subsec:system-architecture}
+We deployed trained pipelines into a real-time early warning web application. A FastAPI backend handles model inference and computes SHAP values for feature interpretability. An SQLite database caches Open-Meteo weather fields and EPA AQS data to minimize latency.
 
-\subsection{Short-Term Nowcasting}
-\begin{table}[H]
-\centering
-\caption{Short-term autoregressive nowcasting results on the 2025 test year.}
-\label{tab:short-results}
-\begin{tabular}{lrrr}
+The Streamlit frontend displays interactive PyDeck heatmaps of AQI across Fresno, Los Angeles, and San Jose. It provides side-by-side timeline plots of actual versus predicted AQI. KPI summary cards trigger automated "Air Stagnation Alerts" during deteriorating weather or predicted AQI spikes.
+
+\section{Results and Discussion}\label{sec:results}
+\subsection{Overall Leaderboard}\label{subsec:leaderboard}
+The 2025 test leaderboard highlights clear differences between horizons. Near-term nowcasting yields high $R^2$ values across all models, whereas 24-hour forecasting drops sharply in accuracy.
+
+\subsection{Short-Term Autocorrelation Dominates Near-Term Nowcasting}\label{subsec:short-term}
+Table~\ref{tab:short-results} summarizes short-term nowcasting performance. Strong autocorrelation enables all models—including naive Persistence—to achieve $R^2 > 0.85$.
+
+\begin{table}[htbp]
+\caption{Short-term autoregressive nowcasting results on the 2025 test year compared with the Reference Baseline Literature (RBL).}\label{tab:short-results}
+\begin{tabular*}{\textwidth}{@{\extracolsep\fill}lrrr}
 \toprule
 Model & MAE & RMSE & $R^2$ \\
+\midrule
 XGBoost & 5.8321 & 9.4719 & 0.8711 \\
 LightGBM & 6.0630 & 9.4897 & 0.8706 \\
 Linear Ridge & 6.3248 & 9.6697 & 0.8657 \\
 CatBoost & 6.2373 & 9.9989 & 0.8564 \\
 Persistence & 6.5068 & 10.0480 & 0.8550 \\
 Random Forest & 6.6052 & 10.1227 & 0.8528 \\
-Climatology & 19.3641 & 27.0662 & -0.0525 \\
-\bottomrule
-\end{tabular}
+Vu et al.~\cite{vu2022geostationary} (RBL)* & -- & -- & 0.8500 \\
+Climatology & 19.3641 & 27.0662 & $-$0.0525 \\
+\botrule
+\end{tabular*}
+\begin{tablenotes}
+\item \textit{Note}: *RBL baseline by Vu et al.\ (2022) reported 10-fold temporal cross-validation $R^2 = 0.8500$ using satellite AOD and HRRR meteorology during the 2018 Camp Fire.
+\end{tablenotes}
 \end{table}
-\FloatBarrier
 
-XGBoost obtains the highest short-term $R^2$ at 0.8711, while also obtaining the lowest MAE. All models, including the Persistence baseline, exceed 0.85 in $R^2$, indicating that recent AQI history is highly informative for near-term nowcasting. The fact that the naive Persistence model performs better than Random Forest and nearly matches CatBoost emphasizes the extreme strength of short-term autocorrelation. This result should be interpreted as evidence of strong temporal persistence rather than as evidence that the complex models fully understand atmospheric mechanisms. The leakage audit reports a 0.927 correlation between the 2025 target and the one-hour AQI lag, which explains why even Linear Ridge and Persistence remain highly competitive. Climatology, however, fails completely in this task as it cannot capture short-term transient pollution spikes.
+XGBoost achieves the top $R^2$ (0.8711) and lowest MAE. Persistence outperforms Random Forest and matches CatBoost, reflecting strong short-term temporal autocorrelation (0.927 correlation between target and 1-hour lag). Climatology fails ($R^2 = -0.0525$), missing transient spikes.
 
-\subsection{Long-Term 24-Hour Forecasting}
-\begin{table}[H]
-\centering
-\caption{Long-term 24-hour forecasting results on the 2025 test year.}
-\label{tab:long-results}
-\begin{tabular}{lrrr}
+\subsection{Horizon Degradation in 24-Hour Forecasting}\label{subsec:long-term}
+Table~\ref{tab:long-results} presents 24-hour horizon performance. Excluding local lags from $t-1$ to $t-23$ forces models to rely on weather, calendar patterns, VPD, and spatial lags.
+
+\begin{table}[htbp]
+\caption{Long-term 24-hour forecasting results on the 2025 test year.}\label{tab:long-results}
+\begin{tabular*}{\textwidth}{@{\extracolsep\fill}lrrr}
 \toprule
 Model & MAE & RMSE & $R^2$ \\
 \midrule
@@ -239,122 +266,152 @@ Linear Ridge & 13.5179 & 19.3861 & 0.4601 \\
 Random Forest & 13.9665 & 19.7806 & 0.4379 \\
 CatBoost & 13.6376 & 20.2404 & 0.4114 \\
 Persistence & 16.3495 & 23.1401 & 0.2307 \\
-Climatology & 20.1250 & 28.0628 & -0.1314 \\
-\bottomrule
-\end{tabular}
+Climatology & 20.1250 & 28.0628 & $-$0.1314 \\
+\botrule
+\end{tabular*}
 \end{table}
-\FloatBarrier
 
-The long-term task is significantly harder because local AQI observations from $t-1$ to $t-23$ are excluded. XGBoost achieves the highest $R^2$ (0.4648), but its advantage over LightGBM and Linear Ridge is small. Unlike the short-term task, the Persistence baseline collapses to an $R^2$ of 0.2307, demonstrating that AQI conditions change considerably over 24 hours. The models must therefore rely on smoother day-prior structure, seasonal timing, spatial lags, and meteorological context to outperform Persistence. Climatology again produces negative $R^2$, indicating that using long-term historical means is worse than simply predicting the global mean. Abrupt upper-tail events remain difficult to anticipate from the available tabular features alone.
+XGBoost leads ($R^2 = 0.4648$), followed closely by LightGBM and Linear Ridge. Persistence drops to $R^2 = 0.2307$, reflecting substantial 24-hour AQI shifts.
 
-\subsection{Extreme-Event and Climate-Context Interpretation}
-Global test-year metrics do not fully describe operational forecasting risk because AQI errors are not equally important across health categories and climate contexts. Fig.~\ref{fig:aqi-category-timeline} therefore provides an EDA view of the daily AQI trajectory colored by U.S. AQI category. Most daily observations fall in the Good and Moderate ranges, but the figure also shows episodic transitions into Unhealthy, Very Unhealthy, and occasional Hazardous conditions. These intermittent upper-tail periods motivate scenario-specific reporting alongside the global leaderboard.
+\subsection{Upper-Tail Extreme Spikes Reveal Model Vulnerability}\label{subsec:extreme-event}
+Global metrics mask operational vulnerabilities. Figure~\ref{fig:aqi-category-timeline} illustrates AQI category shifts, highlighting high-pollution episodes.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.88\linewidth]{figures/eda_aqi_category_timeline.png}
-    \caption{Daily AQI observations colored by U.S. AQI health category. The category-colored timeline illustrates the dominance of Good and Moderate days while highlighting episodic high-AQI periods that motivate scenario-level and extreme-event evaluation.}
+    \includegraphics[width=0.82\linewidth]{figures/eda_aqi_category_timeline.png}
+    \caption{Daily AQI observations colored by U.S. AQI health category.}
     \label{fig:aqi-category-timeline}
 \end{figure}
-\FloatBarrier
 
-Table~\ref{tab:scenario-context-results} reports the best model for each scenario slice, where ``best'' is selected by $R^2$ within the same forecasting configuration and scenario. The climate-context interpretation separates ordinary low-to-moderate AQI behavior from stress windows and upper-tail events. The January slice is reported as the January 2025 Winter Extreme-AQI Window, rather than as a causal wildfire label, because the model-ready dataset does not include verified fire perimeter, smoke plume, or satellite aerosol features.
+Table~\ref{tab:scenario-context-results} evaluates top models across specific scenario slices.
 
-\begin{table}[H]
-\centering
-\caption{Best-per-scenario results for extreme-event and climate-context evaluation on the 2025 test year.}
-\label{tab:scenario-context-results}
+\begin{table}[htbp]
+\caption{Best-per-scenario results for extreme-event and climate-context evaluation on the 2025 test year.}\label{tab:scenario-context-results}
 \footnotesize
-\setlength{\tabcolsep}{3pt}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{lllrrrr}
+\setlength{\tabcolsep}{2pt}
+\begin{tabular*}{\textwidth}{@{\extracolsep\fill}lllrrrr}
 \toprule
 Configuration & Scenario slice & Best model & $N$ & MAE & RMSE & $R^2$ \\
 \midrule
 Short-term & Full 2025 test year & XGBoost & 26293 & 5.8321 & 9.4719 & 0.8711 \\
 Short-term & Non-event baseline (AQI $\leq 100$) & XGBoost & 24806 & 5.1739 & 7.4436 & 0.8521 \\
-Short-term & January 2025 Winter Extreme-AQI Window & Linear Ridge & 1795 & 9.2156 & 14.2454 & 0.8473 \\
+Short-term & January 2025 Winter Extreme Window & Linear Ridge & 1795 & 9.2156 & 14.2454 & 0.8473 \\
 Short-term & Extreme AQI in 2025 (top 5\%) & Persistence & 1321 & 17.0277 & 23.0052 & 0.3004 \\
 Short-term & July--September 2025 wildfire season & Persistence & 6624 & 5.9556 & 10.0932 & 0.8595 \\
 Long-term & Full 2025 test year & XGBoost & 26224 & 13.6366 & 19.3007 & 0.4648 \\
 Long-term & Non-event baseline (AQI $\leq 100$) & CatBoost & 24756 & 11.2602 & 14.5048 & 0.4392 \\
-Long-term & January 2025 Winter Extreme-AQI Window & LightGBM & 1726 & 19.4994 & 32.7758 & 0.2103 \\
-Long-term & Extreme AQI in 2025 (top 5\%) & Persistence & 1315 & 39.3547 & 51.7407 & -2.3742 \\
+Long-term & January 2025 Winter Extreme Window & LightGBM & 1726 & 19.4994 & 32.7758 & 0.2103 \\
+Long-term & Extreme AQI in 2025 (top 5\%) & Persistence & 1315 & 39.3547 & 51.7407 & $-$2.3742 \\
 Long-term & July--September 2025 wildfire season & Random Forest & 6624 & 13.3133 & 18.9501 & 0.5047 \\
-\bottomrule
-\end{tabular}%
-}
+\botrule
+\end{tabular*}
 \end{table}
-\FloatBarrier
 
-The table clarifies three patterns. First, short-term nowcasting remains strong for the full year, the non-event baseline, the January winter window, and the July--September seasonal slice because recent AQI persistence is still available. Notably, the Persistence baseline emerges as the \emph{best} performer in the short-term Extreme AQI (top 5\%) and Wildfire Season slices, further underscoring that machine learning models struggle to reliably learn complex atmospheric drivers of extremes beyond simply copying the most recent observation. Second, the top-5\% AQI slice is much harder even in the short-term setting, with the best $R^2$ falling to 0.3004. Third, the 24-hour top-tail scenario produces negative $R^2$ across all models, with Persistence being the ``least bad'' at -2.3742. This means that even the best models perform worse than a scenario-specific mean predictor on this restricted subset. This does not contradict the global leaderboard; rather, it shows that rare upper-tail AQI behavior is not sufficiently represented by weather, VPD, spatial lags, and day-prior AQI alone.
+Three insights emerge. First, Persistence outperforms machine learning models on short-term top-5\% AQI and Wildfire slices. Second, short-term top-5\% $R^2$ drops to 0.3004. Third, 24-hour top-tail forecasts yield negative $R^2$ across all models (Persistence: $-2.3742$). Without smoke plume or fire perimeter inputs, weather and lag features cannot anticipate abrupt upper-tail spikes.
 
-\subsection{Prediction Diagnostics}
-The predicted-versus-actual diagnostic for LightGBM confirms the main quantitative pattern. The model tracks central AQI ranges well, especially in the short-term setting, but high-AQI peaks are more dispersed and harder to reproduce accurately. This supports the need for explicit extreme-event analysis and for future event-aware features.
+\subsection{Prediction Diagnostics}\label{subsec:diagnostics}
+Figure~\ref{fig:xgboost-predicted-actual} plots XGBoost predictions against actual AQI. While central values match closely, high-AQI peaks display dispersion.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.78\linewidth]{figures/paper_lightgbm_predicted_vs_actual.png}
-    \caption{Predicted versus actual AQI for LightGBM on the independent 2025 test year.}
-    \label{fig:lightgbm-predicted-actual}
+    \includegraphics[width=0.82\linewidth]{figures/paper_xgboost_predicted_vs_actual.png}
+    \caption{Predicted versus actual AQI for XGBoost on the independent 2025 test year.}
+    \label{fig:xgboost-predicted-actual}
 \end{figure}
-\FloatBarrier
 
-\section{Ablation Study}
-A focused LightGBM ablation study tests whether VPD and spatial lag features provide measurable standalone gains. The full feature set is compared with two variants: one removing only VPD, and one removing all spatial lag features. Delta columns are computed relative to the full LightGBM model within the same forecasting configuration.
+\subsection{Comparison with Reference Baseline Literature (RBL)}\label{subsec:rbl-comparison}
+We contextualize our empirical results against the reference baseline literature (RBL) by Vu et al.~\cite{vu2022geostationary}, who modeled PM2.5 levels during the 2018 California Camp Fire using a satellite-augmented Random Forest framework.
 
-\begin{table}[H]
-\centering
-\caption{LightGBM ablation study for VPD and spatial lag features on the 2025 test year.}
-\label{tab:ablation}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{llrrrrrr}
+Vu et al.\ achieved a temporal cross-validation $R^2$ of 0.8500 and an out-of-bag $R^2$ of 0.9200 by integrating high-resolution GOES-16 satellite Aerosol Optical Depth (AOD), HRRR meteorology, and SMOTE oversampling. In our benchmark, our top short-term nowcasting model (XGBoost) achieves a comparable test $R^2$ of 0.8711 (and Random Forest achieves $R^2 = 0.8528$), validating that tabular meteorological attributes paired with autoregressive AQI lags match near-term estimation performance.
+
+\begin{table}[htbp]
+\caption{Comparative overview of our benchmark models against the Reference Baseline Literature (RBL) by Vu et al.~\cite{vu2022geostationary}.}\label{tab:rbl-comparison}
+\footnotesize
+\setlength{\tabcolsep}{2pt}
+\begin{tabular*}{\textwidth}{@{\extracolsep\fill}lllll}
+\toprule
+Study / Model & Target / Scope & Key Feature Inputs & Validation Scheme & Test/CV $R^2$ \\
+\midrule
+Vu et al.~\cite{vu2022geostationary} (RBL RF) & 2018 Camp Fire & AQS + GOES-16 AOD + HRRR & Out-of-Bag (OOB) & 0.9200 \\
+Vu et al.~\cite{vu2022geostationary} (RBL RF) & 2018 Camp Fire & AQS + GOES-16 AOD + HRRR & 10-Fold Temporal CV & 0.8500 \\
+\midrule
+Ours: XGBoost (Short-Term) & 2025 Hourly AQI & AQS + Open-Meteo + Lags & 2025 Test Set & \textbf{0.8711} \\
+Ours: Random Forest (Short-Term) & 2025 Hourly AQI & AQS + Open-Meteo + Lags & 2025 Test Set & 0.8528 \\
+Ours: XGBoost (24-Hour) & 2025 Hourly AQI & Open-Meteo + Prior Lags & 2025 Test Set & 0.4648 \\
+Ours: Short-Term (Top 5\% Slice) & 2025 Upper Tail & AQS + Open-Meteo + Lags & Scenario Slice & 0.3004 \\
+Ours: 24-Hour (Top 5\% Slice) & 2025 Upper Tail & Open-Meteo + Prior Lags & Scenario Slice & $-$2.3742 \\
+\botrule
+\end{tabular*}
+\end{table}
+
+Two key operational insights emerge:
+\begin{enumerate}
+    \item \textbf{Horizon Degradation}: While Vu et al.\ focused on short-term PM2.5 estimation during active fire windows, extending evaluation to a strict 24-hour horizon yields performance reduction ($R^2 = 0.4648$ for XGBoost).
+    \item \textbf{Extreme-Event Tail Vulnerability}: Under upper-tail extreme scenarios (top 5\% AQI spikes), short-term accuracy drops to $R^2 = 0.3004$, and 24-hour predictions yield negative $R^2$. Tabular weather and lag features alone cannot anticipate sudden wildfire smoke transport without real-time satellite AOD and active fire perimeter inputs.
+\end{enumerate}
+
+\section{Ablation Study}\label{sec:ablation}
+Table~\ref{tab:ablation} reports LightGBM ablation results removing VPD and spatial lags.
+
+\begin{table}[htbp]
+\caption{LightGBM ablation study for VPD and spatial lag features on the 2025 test year.}\label{tab:ablation}
+\footnotesize
+\setlength{\tabcolsep}{2pt}
+\begin{tabular*}{\textwidth}{@{\extracolsep\fill}llrrrrrr}
 \toprule
 Configuration & Feature set & Features & MAE & RMSE & $R^2$ & $\Delta$MAE & $\Delta R^2$ \\
 \midrule
 Short-term & Full feature set & 47 & 6.0630 & 9.4897 & 0.8706 & 0.0000 & 0.0000 \\
-Short-term & Without VPD & 46 & 6.0901 & 9.5485 & 0.8690 & 0.0271 & -0.0016 \\
+Short-term & Without VPD & 46 & 6.0901 & 9.5485 & 0.8690 & 0.0271 & $-$0.0016 \\
 Short-term & Without spatial lags & 32 & 6.1245 & 9.4834 & 0.8708 & 0.0615 & 0.0002 \\
 Long-term & Full feature set & 49 & 13.5828 & 19.3349 & 0.4629 & 0.0000 & 0.0000 \\
 Long-term & Without VPD & 48 & 13.6113 & 19.3162 & 0.4640 & 0.0285 & 0.0010 \\
-Long-term & Without spatial lags & 34 & 13.5542 & 19.1877 & 0.4711 & -0.0286 & 0.0081 \\
-\bottomrule
-\end{tabular}%
-}
+Long-term & Without spatial lags & 34 & 13.5542 & 19.1877 & 0.4711 & $-$0.0286 & 0.0081 \\
+\botrule
+\end{tabular*}
 \end{table}
-\FloatBarrier
 
-The ablation results do not support a strong independent VPD performance claim. Removing VPD changes $R^2$ by less than 0.001 in both configurations, and the direction of the change is not consistently favorable to the full feature set. Therefore, VPD should be described as an engineered dryness feature rather than as a demonstrated accuracy-improving feature.
+Removing VPD alters $R^2$ by $< 0.003$ across settings. VPD acts as an interpretable dryness descriptor rather than a standalone accuracy driver. Spatial lags show mixed impact: removing them slightly improves short-term $R^2$ while marginally raising long-term MAE.
 
-The spatial-lag result is also mixed. Removing spatial lags slightly improves short-term $R^2$, which is plausible because short-term nowcasting is already dominated by local AQI persistence from the 1--3 hour lags. In the long-term setting, removing spatial lags increases MAE by 0.1114 but leaves $R^2$ almost unchanged. This suggests a modest long-horizon error-reduction role, but not a large explained-variance gain.
-
-\section{Extreme-Event Analysis}
-Extreme AQI hours are defined using the empirical 99th percentile of the full model-ready target distribution. The threshold is
+\section{Extreme-Event Analysis}\label{sec:extreme-analysis}
+We define extreme AQI using the 99th percentile threshold:
 \begin{equation}
     y_t > P_{99} = 151.84.
     \label{eq:extreme-threshold}
 \end{equation}
-Using this definition, the dataset contains 1,802 extreme hourly records, approximately 0.99\% of all observations. The year 2020 contains the largest number of extreme hours, and August--October accounts for approximately 42.8\% of all extreme records.
+This isolates 1,802 extreme hourly records (0.99\% of data). Year 2020 accounts for the largest share, with August--October containing 42.8\% of extreme hours.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.74\linewidth]{figures/06_extreme_aqi_events_heatmap_year_month.png}
-    \caption{Year-month heatmap of extreme AQI records defined by the empirical 99th percentile threshold.}
+    \includegraphics[width=0.82\linewidth]{figures/06_extreme_aqi_events_heatmap_year_month.png}
+    \caption{Year-month heatmap of extreme AQI records (99th percentile threshold).}
     \label{fig:extreme-heatmap}
 \end{figure}
-\FloatBarrier
 
-The heatmap indicates temporal clustering rather than uniform random occurrence. The concentration in 2020 and in late-summer to autumn months is consistent with a wildfire-season context, but this paper does not make causal wildfire attribution. Establishing causality would require joining the AQI panel with external fire perimeters, smoke plume trajectories, aerosol optical depth, wind transport, or satellite-based smoke products.
+Figure~\ref{fig:extreme-heatmap} shows strong temporal clustering during late summer and autumn, aligning with California wildfire seasons.
 
-\section{Threats to Validity}
-Several limitations should be considered when interpreting the results. First, \texttt{target\_aqi} is a PM2.5-derived AQI proxy, not a complete regulatory AQI label derived from all criteria pollutants. Second, the dataset combines EPA station observations with Open-Meteo supplemental records, which may introduce source heterogeneity. Notably, due to Open-Meteo providing records up to December 2025 and EPA AQS records typically lagging in real-time, the final year contains primarily Open-Meteo samples, posing an out-of-distribution risk. Third, the 2025 test-year distribution is affected by this available supplemental source alignment, so station-level generalization should be interpreted carefully. Fourth, VPD and spatial lags are physically motivated engineered features, but the ablation study shows limited standalone evidence of improvement. Fifth, the extreme-event section identifies temporal clustering only; without external fire and smoke observations, it cannot attribute high-AQI records to wildfire causes.
+\section{Threats to Validity}\label{sec:threats}
+Four main limitations apply. First, \texttt{target\_aqi} serves as a PM2.5 proxy rather than a full multi-pollutant AQI. Second, combining EPA AQS and Open-Meteo sources introduces potential data heterogeneity; 2025 relies predominantly on Open-Meteo records. Third, ablation reveals minimal standalone gain from VPD and spatial lags. Fourth, extreme-event clustering reflects correlation rather than causal fire attribution.
 
-\section{Conclusion and Future Work}
-This paper presented a California US AQI forecasting benchmark with climate-context and extreme-event evaluation. Using 181,122 hourly observations from 2018--2025, the study compared Linear Ridge, Random Forest, LightGBM, CatBoost, and XGBoost under short-term nowcasting and 24-hour forecasting scenarios. XGBoost achieved the best $R^2$ in both settings, with 0.8711 for short-term nowcasting and 0.4648 for long-term forecasting.
+\section{Conclusion and Future Work}\label{sec:conclusion}
+We presented a California AQI forecasting benchmark across 181,122 hourly records (2018--2025). XGBoost achieved top performance in short-term nowcasting ($R^2 = 0.8711$) and 24-hour forecasting ($R^2 = 0.4648$). However, scenario analysis shows machine learning models struggle during upper-tail spikes without real-time smoke transport inputs, where naive persistence baselines remain competitive.
 
-The results show that near-term AQI prediction is strongly driven by temporal persistence, while 24-hour and upper-tail AQI forecasting remain difficult when recent local AQI is hidden. The fact that the naive Persistence baseline performs as the best model for extreme AQI windows underscores the challenge. The VPD ablation result is especially important for academic wording: VPD is best described as an engineered dryness feature, not as a proven standalone performance driver. Spatial lags provide mixed evidence, occasionally showing small performance degradations when included. Future work should integrate event-aware data such as fire perimeters, smoke plumes, aerosol optical depth, planetary boundary-layer height, and upwind transport indicators. It should also extend ablation testing across model families and feature groups, and evaluate uncertainty-aware warning thresholds for high-AQI conditions.
+Future work will incorporate satellite Aerosol Optical Depth (AOD), fire perimeters, planetary boundary layer height, and wind vector transport. We also plan to evaluate Spatio-Temporal Graph Neural Networks (ST-GNNs) for regional modeling and connect model outputs to automated IoT public health alerts.
 
-\bibliographystyle{splncs04}
+\backmatter
+
+\bmhead{Acknowledgements}
+The authors acknowledge the U.S. Environmental Protection Agency for providing publicly accessible AQS monitoring data and Open-Meteo for supplemental meteorological records.
+
+\section*{Declarations}
+\begin{itemize}
+\item \textbf{Funding}: Not applicable.
+\item \textbf{Conflict of interest}: The authors declare no competing interests.
+\item \textbf{Data availability}: The datasets generated and analysed during the current study are available from the EPA AQS and Open-Meteo public repositories.
+\item \textbf{Code availability}: Code and reproducibility materials are available upon reasonable request.
+\item \textbf{Author contribution}: All authors contributed to the study conception and design. Data collection, analysis, and implementation were performed by all authors. All authors read and approved the final manuscript.
+\end{itemize}
+
 \bibliography{references}
 
 \end{document}

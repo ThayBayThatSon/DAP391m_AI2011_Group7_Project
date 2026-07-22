@@ -159,6 +159,32 @@ def plot_lightgbm_predicted_vs_actual(predictions: pd.DataFrame) -> None:
     sns.despine(fig=fig)
     save_figure(fig, PLOTS / "paper_lightgbm_predicted_vs_actual.png")
 
+def plot_xgboost_predicted_vs_actual(predictions: pd.DataFrame) -> None:
+    xgboost = predictions[predictions["Model"].eq("XGBoost")].copy()
+    xgboost["Task"] = xgboost["Configuration"].map(short_config)
+
+    fig, axes = plt.subplots(1, 2, figsize=(8.5, 3.9), sharex=True, sharey=True)
+    for ax, task in zip(axes, ["Short-term nowcasting", "24h forecasting"]):
+        sub = xgboost[xgboost["Task"].eq(task)]
+        if len(sub) > 7000:
+            sub = sub.sample(7000, random_state=42)
+        ax.scatter(
+            sub["Actual_AQI"],
+            sub["Predicted_AQI"],
+            s=7,
+            alpha=0.28,
+            color="#4C78A8" if task.startswith("Short") else "#D9822B",
+            edgecolor="none",
+        )
+        lim = float(max(sub["Actual_AQI"].max(), sub["Predicted_AQI"].max()))
+        ax.plot([0, lim], [0, lim], color="#333333", linestyle="--", linewidth=0.9)
+        ax.set_xlabel("Actual AQI")
+        ax.text(0.03, 0.94, task, transform=ax.transAxes, ha="left", va="top", fontsize=9, fontweight="bold")
+        ax.grid(color="#E6E6E6")
+    axes[0].set_ylabel("Predicted AQI")
+    sns.despine(fig=fig)
+    save_figure(fig, PLOTS / "paper_xgboost_predicted_vs_actual.png")
+
 
 def plot_extreme_heatmap(df: pd.DataFrame) -> None:
     work = df[["time", AQI_COL]].copy()
@@ -196,6 +222,7 @@ def main() -> None:
     plot_correlation_heatmap(df)
     plot_vpd_diagnostic(df)
     plot_lightgbm_predicted_vs_actual(predictions)
+    plot_xgboost_predicted_vs_actual(predictions)
     plot_extreme_heatmap(df)
 
 

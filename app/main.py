@@ -2,10 +2,6 @@ from __future__ import annotations
 
 import logging
 import math
-from __future__ import annotations
-
-import logging
-import math
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone

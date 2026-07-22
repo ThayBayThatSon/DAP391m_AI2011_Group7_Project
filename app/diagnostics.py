@@ -29,6 +29,8 @@ MODEL_NAMES = (
     "CatBoost",
     "Random Forest",
     "Linear Ridge",
+    "Persistence",
+    "Climatology",
 )
 SCENARIOS = {
     "Short-term Nowcasting (1h)": {
@@ -374,6 +376,10 @@ def sync_prediction_csv(
     missing = required.difference(frame.columns)
     if missing:
         raise ValueError(f"Prediction report is missing columns: {sorted(missing)}")
+    
+    # Filter out configurations not defined in UI scenarios (e.g. 6h, 12h, 18h)
+    frame = frame[frame["Configuration"].isin(CONFIGURATION_TO_SCENARIO)].copy()
+    
     if not set(frame["Model"]).issubset(MODEL_NAMES):
         raise ValueError("Prediction report contains unsupported model names.")
     if not set(frame["Configuration"]).issubset(CONFIGURATION_TO_SCENARIO):

@@ -61,3 +61,10 @@ tmp/
 # OS files
 Thumbs.db
 .DS_Store
+
+# Presentation slides and assets
+presentation/presentation_standalone.html
+presentation/temp_*.csv
+
+# User inputs
+user_inputs.txt

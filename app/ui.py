@@ -293,6 +293,44 @@ def metric_cards_grid_html(
     )
 
 
+FEATURE_NAME_MAPPING = {
+    "temperature_2m": "Temperature",
+    "relative_humidity_2m": "Humidity",
+    "wind_speed_10m": "Wind Speed",
+    "wind_direction_10m": "Wind Direction",
+    "surface_pressure": "Surface Pressure",
+    "rain": "Rainfall",
+    "cloud_cover": "Cloud Cover",
+    "vpd_kpa": "Vapor Pressure Deficit",
+    "stagnation_alert": "Stagnation Alert",
+    "lat": "Latitude",
+    "lon": "Longitude",
+    "month_sin": "Seasonality (Month Sin)",
+    "month_cos": "Seasonality (Month Cos)",
+    "hour_sin": "Time of Day (Hour Sin)",
+    "hour_cos": "Time of Day (Hour Cos)",
+    "dayofweek_sin": "Day of Week (Sin)",
+    "dayofweek_cos": "Day of Week (Cos)",
+    "wind_speed_pressure": "Wind/Pressure Interaction",
+}
+
+def get_readable_feature_name(raw_name: str) -> str:
+    if raw_name in FEATURE_NAME_MAPPING:
+        return FEATURE_NAME_MAPPING[raw_name]
+    
+    if raw_name.startswith("target_aqi_lag_"):
+        lag = raw_name.split("_")[-1]
+        return f"Historical AQI ({lag}h ago)"
+    
+    if raw_name.startswith("target_aqi_roll_mean_from_lag"):
+        return f"Rolling Average AQI ({raw_name.split('from_lag')[-1]})"
+    if raw_name.startswith("target_aqi_roll_max_from_lag"):
+        return f"Rolling Max AQI ({raw_name.split('from_lag')[-1]})"
+    if raw_name.startswith("target_aqi_roll_std_from_lag"):
+        return f"AQI Volatility ({raw_name.split('from_lag')[-1]})"
+        
+    return raw_name.replace("_", " ").title()
+
 def render_live_forecast_content(
     observed_at: datetime,
     weather: dict[str, float],
@@ -406,6 +444,7 @@ def render_live_forecast_content(
         if shap_values:
             shap_df = pd.DataFrame(shap_values)
             shap_df["color"] = shap_df["value"].apply(lambda x: "Increase AQI" if x > 0 else "Decrease AQI")
+            shap_df["feature"] = shap_df["feature"].apply(get_readable_feature_name)
             fig = px.bar(
                 shap_df, 
                 x="value", 
@@ -926,7 +965,7 @@ with live_tab:
             layers=[layer, scatter_layer],
             initial_view_state=view_state,
             tooltip={"text": "{name}\nAQI: {weight}"},
-            map_style="mapbox://styles/mapbox/dark-v10",
+            map_style=None,
         )
         st.pydeck_chart(r)
 
