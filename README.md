@@ -128,10 +128,10 @@ python scr/run_all.py
 ## 📊 Key Research Findings
 
 1. **Short-Term Nowcasting (Lag 1–3h)**:
-   - **LightGBM** achieves the highest overall test performance ($R^2 = 0.8695, \text{RMSE} = 6.42$).
-   - The **Persistence** baseline performs remarkably strong during acute pollution spikes ($>95^{\text{th}}$ percentile AQI), reflecting heavy short-term temporal autocorrelation.
+   - **XGBoost** achieves the highest overall test performance ($R^2 = 0.8711, \text{MAE} = 5.83, \text{RMSE} = 9.47$), followed closely by **LightGBM** ($R^2 = 0.8706, \text{MAE} = 6.06, \text{RMSE} = 9.49$).
+   - The **Persistence** baseline performs remarkably strong during acute pollution spikes ($>95^{\text{th}}$ percentile AQI, $R^2 = 0.3004$) and Wildfire season windows ($R^2 = 0.8595$), outperforming complex ML models during extreme peak events due to heavy short-term temporal autocorrelation.
 2. **Long-Term 24h Forecasting (Lag 24h)**:
-   - **XGBoost** achieves the highest accuracy ($R^2 = 0.4611, \text{RMSE} = 13.06$).
+   - **XGBoost** achieves the highest accuracy ($R^2 = 0.4648, \text{MAE} = 13.64, \text{RMSE} = 19.30$), followed by **LightGBM** ($R^2 = 0.4629$) and **Linear Ridge** ($R^2 = 0.4601$).
    - Naive baselines fail completely when autoregressive short lags are masked, proving that 24h forecasting relies on learning meteorology (VPD, Temperature, Dew Point, Boundary Layer Height) and regional spatial dynamics.
 3. **Extreme Event Resilience (2020 Wildfire Holdout)**:
    - Tree-based ensemble models maintain reliable error bounds during severe wildfire-driven AQI anomalies, whereas linear models degrade significantly.
