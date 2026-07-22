@@ -920,6 +920,8 @@ with live_tab:
             format_func=lambda value: f"{value} Hour" if value == 1 else f"{value} Hours",
             key="live_forecast_horizon",
         )
+        if horizon is None:
+            horizon = 24
         
         sim_mode = st.toggle("🔥 Wildfire Extreme Event Simulation", value=False, key="wildfire_sim_toggle")
         sim_aqi = 285.0
