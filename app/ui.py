@@ -456,7 +456,7 @@ def render_live_forecast_content(
                 labels={"value": "SHAP Value (Impact on AQI)", "feature": "Feature"},
             )
             fig.update_layout(yaxis={'categoryorder':'total ascending'})
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         else:
             st.info("SHAP explanations are not available for this prediction.")
 
@@ -1099,7 +1099,7 @@ with live_tab:
                 fig.add_hrect(y0=50, y1=100, fillcolor="yellow", opacity=0.1, layer="below", line_width=0)
                 fig.add_hrect(y0=100, y1=150, fillcolor="orange", opacity=0.1, layer="below", line_width=0)
                 fig.add_hrect(y0=150, y1=500, fillcolor="red", opacity=0.1, layer="below", line_width=0)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
     except requests.exceptions.ConnectionError:
         with right_panel:
             st.error(
