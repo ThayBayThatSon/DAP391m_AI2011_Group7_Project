@@ -915,9 +915,9 @@ with live_tab:
         station_name = st.selectbox("Station", list(STATIONS.keys()), index=0)
         horizon = st.segmented_control(
             "Forecast Horizon",
-            options=[1, 24],
+            options=[1, 6, 12, 18, 24],
             default=24,
-            format_func=lambda value: "1 Hour" if value == 1 else "24 Hours",
+            format_func=lambda value: f"{value} Hour" if value == 1 else f"{value} Hours",
             key="live_forecast_horizon",
         )
         
