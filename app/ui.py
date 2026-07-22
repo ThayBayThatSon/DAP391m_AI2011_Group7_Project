@@ -1125,9 +1125,19 @@ with live_tab:
                 
                 if sim_mode:
                     prediction["predicted_aqi"] = sim_aqi
-                    weather["wind_speed_10m"] = min(weather["wind_speed_10m"], 1.2)
-                    weather["relative_humidity_2m"] = min(weather["relative_humidity_2m"], 35.0)
+                    prediction["model_horizon"] = f"Wildfire Emergency Simulation (t+{horizon})"
+                    weather["temperature_2m"] = max(weather["temperature_2m"], 38.5)
+                    weather["relative_humidity_2m"] = 18.0
+                    weather["wind_speed_10m"] = 1.1
                     weather["rain"] = 0.0
+                    vpd = vpd_kpa(weather["temperature_2m"], weather["relative_humidity_2m"])
+                    current_aqi = AQIReading(
+                        value=round(sim_aqi * 0.82, 1),
+                        observed_at=observed_at,
+                        label="Simulated Current AQI",
+                        source="Wildfire Sensor Network",
+                        is_current=True,
+                    )
                     timeline_prediction["predictions"] = {
                         1: round(sim_aqi * 0.85, 1),
                         6: round(sim_aqi * 0.92, 1),
@@ -1135,14 +1145,6 @@ with live_tab:
                         18: round(sim_aqi * 1.08, 1),
                         24: round(sim_aqi * 1.15, 1),
                     }
-                    if current_aqi.value is not None:
-                        current_aqi = AQIReading(
-                            value=sim_aqi * 0.8,
-                            observed_at=current_aqi.observed_at,
-                            label="Simulated Current AQI",
-                            source="Simulated Wildfire Sensor",
-                            is_current=True,
-                        )
             render_live_forecast_content(
                 observed_at,
                 weather,
