@@ -317,7 +317,7 @@ Khúc này AI sẽ không bao giờ tự tư duy được nếu thiếu Domain K
 
 Đồng thời, nhóm đã áp dụng GridSearchCV kết hợp với TimeSeriesSplit (Cross Validation dành riêng cho chuỗi thời gian) để tinh chỉnh siêu tham số (Hyperparameter tuning) cho các mô hình mạnh nhất như XGBoost và LightGBM (đáp ứng Step 8).
 
-Một điểm sáng giá nữa ở đây là cơ chế **Chronological Boundary Leakage Guard**. Vì các biến trễ (Lag) có thể vô tình mang dữ liệu tương lai chui vào tập Train, nhóm đã lập trình một bức tường rào chặn ở các ranh giới: Xóa trắng 4 giờ đệm đối với Nowcasting, và xóa 215 giờ đệm đối với Forecasting để đảm bảo không một giọt Data Leakage nào lọt qua.
+Một điểm sáng giá nữa ở đây là cơ chế **Chronological Boundary Leakage Guard**. Vì các biến trễ (Lag) có thể vô tình mang dữ liệu tương lai chui vào tập Train, nhóm đã lập trình một bức tường rào chặn ở các ranh giới: Xóa trắng 4 giờ đệm đối với Nowcasting, và xóa 215 giờ đệm đối với 24h Forecasting. Con số 215 giờ này được tính toán chính xác bằng tổng cửa sổ trễ quá khứ xa nhất (191 giờ spatial & day-prior lag) cộng với 24 giờ đệm của horizon, đảm bảo không một giọt Data Leakage nào lọt qua.
 
 Cuối cùng, Backend FastAPI sẽ nạp Model, trong khi Frontend Streamlit đóng vai trò giao diện. Hệ thống này được code tự động hóa hoàn toàn để đáp ứng kịch bản triển khai thực tế."
 
@@ -334,23 +334,21 @@ Cuối cùng, Backend FastAPI sẽ nạp Model, trong khi Frontend Streamlit đ�
 | Random Forest | 10.09 | 5.95 | 0.8595 | +0.0095 |
 | XGBoost | **9.47** | **5.83** | **0.8711** | **+0.0211** |
 | LightGBM | 9.48 | 6.06 | 0.8706 | +0.0206 |
-| Baseline (Vu et al., 2022) | ~9.70 | ~6.50 | 0.8500 | reference |
-*XGBoost and LightGBM outperform the Baseline in all metrics (RMSE, MAE, R2).*
+| Baseline (Vu et al., 2022) | ~9.70 | ~6.50 | 0.8500 | reference (qualitative) |
+*XGBoost and LightGBM lead short-term nowcasting ($R^2 = 0.8711$). At 24h horizon, Linear Ridge achieves lowest MAE (13.5179).*
 
 **[SCRIPT]**
 "Đến phần Đánh giá mô hình. 
 
-Như hội đồng có thể thấy trên màn hình, phía bên phải là hình chụp trực tiếp bài báo nghiên cứu gốc của tác giả Vu và cộng sự xuất bản năm 2022. Đây là Baseline chuẩn mực mà nhóm dùng để đối chiếu.
+Như hội đồng có thể thấy trên màn hình, phía bên phải là hình chụp trực tiếp bài báo nghiên cứu gốc của tác giả Vu và cộng sự xuất bản năm 2022. Đây là RBL Baseline mà nhóm đối chiếu định tính (qualitative comparison).
 
-Bài báo Baseline dù dùng cả ảnh Vệ tinh phức tạp nhưng cũng chỉ đạt R2 khoảng 0.85. 
+Bài báo Baseline dù dùng cả ảnh Vệ tinh phức tạp nhưng đạt R2 khoảng 0.8500. 
 
-Trong khi đó, nhìn vào bảng so sánh bên trái, mô hình XGBoost thuần Tabular của nhóm em đã xuất sắc vượt qua Baseline, đạt R2 lên tới **0.8711**. 
+Trong khi đó, nhìn vào bảng so sánh bên trái, mô hình XGBoost thuần Tabular của nhóm em đạt R2 lên tới **0.8711** ở mốc short-term nowcasting. 
 
-Đặc biệt, nhóm có đưa thêm mô hình cơ sở **Persistence (Naive)** vào để làm cột mốc đối chứng. Ở dự báo ngắn hạn 1 giờ, Persistence có điểm khá cao vì khói bụi ít thay đổi đột ngột. Tuy nhiên, khi chuyển sang dự báo dài hạn 24 giờ, mô hình Naive này sụp đổ hoàn toàn (R2 rớt xuống 0.23). 
+Đặc biệt, ở kịch bản dự báo xa 24 giờ (Table 3), XGBoost dẫn đầu về R2 (0.4648) và RMSE (19.3007), nhưng mô hình **Linear Ridge** lại xuất sắc đạt chỉ số MAE thấp nhất (13.5179). Trong khi đó, mô hình cơ sở Persistence (Naive) hoàn toàn sụp đổ ở mốc 24h (R2 rớt xuống 0.23).
 
-Ngược lại, XGBoost của nhóm vẫn duy trì sức mạnh suy luận từ các biến thời tiết để dự báo 24 giờ với R2 đạt gần 0.47, điều mà bài báo Baseline không hề làm được vì họ chỉ giới hạn ở mức nội suy không gian.
-
-Mô hình của chúng em đã vượt trội mà không cần dùng đến dữ liệu Vệ tinh vốn đắt đỏ và hay mất tín hiệu ban đêm."
+Nhóm nhấn mạnh đây là sự đối chiếu định tính do khác biệt về phạm vi và tập dữ liệu, khẳng định mô hình Tabular kèm biến trễ hoàn toàn có thể đạt hiệu năng tiệm cận mà không cần dữ liệu vệ tinh đắt đỏ."
 
 ---
 
@@ -518,8 +516,8 @@ Xin cảm ơn hội đồng đã lắng nghe!"
 *Cách trả lời:* "Dạ không phải bốc thuốc ạ. Cảnh báo này dựa trên nguyên lý: nếu mô hình dự báo AQI duy trì ở mức Cao/Nguy hiểm liên tục trong nhiều giờ mà tốc độ gió (Wind Speed) cực thấp và nhiệt độ cao, hệ thống sẽ trigger cảnh báo đỏ. Đây là ứng dụng thực tế để nhận diện việc khói bụi bị mắc kẹt lại trong thung lũng, gây ngạt cho người dân."
 
 **Câu 16 (Về Chronological Boundary Leakage Guard):**
-*Hội đồng hỏi:* Khoảng đệm 4 giờ (đối với Nowcasting) và 215 giờ (đối với Forecasting) trong việc chia data có tác dụng gì?
-*Cách trả lời:* "Dạ thưa, vì nhóm tạo ra các biến trễ (Lag) lùi về quá khứ (ví dụ Lag_3h là lấy data 3 giờ trước). Ở đúng ranh giới chia cắt giữa tập Train và Test, nếu không xóa trắng một khoảng đệm, biến Lag của tập Test sẽ chọc ngược vào tập Train (tức là lấy data của tập Train). Nhóm xóa 4h đệm để cắt đứt hoàn toàn dây dưa rò rỉ này, đảm bảo Test là tập hoàn toàn độc lập."
+*Hội đồng hỏi:* Khoảng đệm 4 giờ (đối với Nowcasting) và 215 giờ (đối với Forecasting) trong việc chia data có tác dụng gì và con số 215h đến từ đâu?
+*Cách trả lời:* "Dạ thưa, vì nhóm tạo ra các biến trễ (Lag) lùi về quá khứ (ví dụ Lag_3h là lấy data 3 giờ trước). Ở đúng ranh giới chia cắt giữa tập Train và Test, nếu không xóa trắng một khoảng đệm, biến Lag của tập Test sẽ chọc ngược vào tập Train. Con số 215 giờ ở kịch bản 24h được tính toán chính xác bằng tổng của khoảng trễ quá khứ xa nhất (191 giờ spatial & day-prior lag) cộng với 24 giờ đệm của horizon forecast. Việc xóa khoảng đệm này giúp cắt đứt hoàn toàn dây dưa rò rỉ, đảm bảo tập Test độc lập 100% ạ."
 
 **Câu 17 (Về Business Value):**
 *Hội đồng hỏi:* Đồ án này có giá trị ứng dụng thực tế gì hay chỉ là làm cho xong môn học?

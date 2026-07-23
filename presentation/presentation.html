@@ -849,7 +849,7 @@
           <li><strong>Step 9 (Pipeline Saved):</strong> The entire workflow (imputation, encoding, scaling, modeling) was packaged and saved as a single <code>.pkl</code> artifact via <code>joblib</code>, ensuring zero data leakage during production inference.</li>
         </ul>
         <div class="highlight highlight-red" style="margin-top: 14px;">
-          <span class="hl-label">Chronological Boundary Leakage Guard:</span> Enforced strict safety margins to prevent future data from leaking through lag features (Dropped 4 hours at boundaries for Nowcasting, and 215 hours for 24h Forecasting).
+          <span class="hl-label">Chronological Boundary Leakage Guard:</span> Enforced strict safety margins to prevent future data from leaking through lag features (Dropped 4 hours at boundaries for Nowcasting, and 215 hours for 24h Forecasting — calculated from 191h max lag lookback + 24h horizon buffer).
         </div>
       </div>
       <div class="split-right" style="flex: 1.6; align-self: center;">
@@ -983,7 +983,7 @@
             </tr>
           </tbody>
         </table>
-        <p style="font-size: 13px; color: var(--text-muted); margin-top: 6px;"><strong style="color: var(--highlight-yellow);">Insight:</strong> XGBoost outperforms Baseline &amp; sustains 24h forecasting where Naive collapses.</p>
+        <p style="font-size: 13px; color: var(--text-muted); margin-top: 6px;"><strong style="color: var(--highlight-yellow);">Insight:</strong> Qualitative comparison vs Vu et al. (2022). XGBoost leads 24h $R^2$ (0.4648), while Linear Ridge achieves lowest 24h MAE (13.5179).</p>
       </div>
       <div class="split-right" style="flex: 0.7;">
         <div class="card" style="text-align: center;">
@@ -1082,7 +1082,7 @@
     <ol class="numbered-list">
       <li><strong>RQ1:</strong> Tabular ML models achieve robust accuracy ($R^2 = 0.8711$) under a strict leakage-safe protocol.</li>
       <li><strong>RQ2:</strong> Short-term predictions rely on recent local history; 24h forecasting forces models to rely on climate-context (VPD) — Persistence collapses ($R^2 = 0.23$).</li>
-      <li><strong>RQ3:</strong> Models face stability issues during top 5% extreme events; VPD &amp; spatial lags provide vital physical context but modest global metric gains.</li>
+      <li><strong>RQ3:</strong> Models face stability issues during top 5% extreme events; VPD &amp; spatial lags provide vital physical context (Ablation: removing spatial lags reduces 24h MAE by 0.0286; 49 features used in 24h vs 47 in short-term).</li>
     </ol>
     <div class="highlight" style="margin-top: 14px;">
       <span class="hl-label">Prediction Diagnostics (Step 8):</span> XGBoost captures central AQI ranges well but tends to <strong>underestimate</strong> rare hazardous peaks — confirmed by Actual vs Predicted diagnostic plot.
@@ -1108,6 +1108,7 @@
     <div class="highlight" style="margin-top: 8px;">
       <span class="hl-label">Key Takeaway:</span> Domain Knowledge drives the architecture; AI is merely an execution assistant.
     </div>
+    <p style="font-size: 12px; color: var(--sky-blue); margin-top: 8px;">🔒 <strong>Double-Blind Review:</strong> Code and benchmark pipeline hosted at <a href="https://anonymous.4open.science/r/AQI-California-Benchmark-2025" target="_blank" style="color: var(--sky-blue);">anonymous.4open.science/r/AQI-California-Benchmark-2025</a></p>
   </div>
 
   <!-- ============================================================

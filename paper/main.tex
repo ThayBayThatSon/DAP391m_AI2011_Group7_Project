@@ -17,6 +17,8 @@
 \usepackage{caption}
 \geometry{top=24mm,bottom=24mm,left=24mm,right=24mm}
 
+\hypersetup{hidelinks}
+
 \raggedbottom
 
 \renewcommand\topfraction{.95}
@@ -190,7 +192,7 @@ To prevent lag features from crossing split boundaries, we enforce a temporal bu
     \end{cases}
     \label{eq:boundary-guard}
 \end{equation}
-Audit checks verify that target proxies and future features are excluded.
+The 215-hour boundary guard for long-term forecasting is determined by combining the maximum spatial and day-prior lag lookback window (191 hours) with a 24-hour forecast horizon safety margin. Audit checks verify that target proxies and future features are excluded.
 
 \subsection{Models and Metrics}\label{subsec:models-metrics}
 We benchmark five regressors: Linear Ridge, Random Forest, LightGBM, CatBoost, and XGBoost. CatBoost processes categorical station IDs natively, while other models use train-set scaling and encoding.
@@ -284,7 +286,7 @@ Climatology & 20.1250 & 28.0628 & $-$0.1314 \\
 \end{tabular*}
 \end{table}
 
-XGBoost leads ($R^2 = 0.4648$), followed closely by LightGBM and Linear Ridge. Persistence drops to $R^2 = 0.2307$, reflecting substantial 24-hour AQI shifts.
+XGBoost leads in overall $R^2$ (0.4648) and RMSE (19.3007), followed closely by LightGBM and Linear Ridge. Notably, Linear Ridge achieves the lowest MAE at the 24-hour horizon (13.5179). Persistence drops to $R^2 = 0.2307$, reflecting substantial 24-hour AQI shifts.
 
 \subsection{Upper-Tail Extreme Spikes Reveal Model Vulnerability}\label{subsec:extreme-event}
 Global metrics mask operational vulnerabilities. Figure~\ref{fig:aqi-category-timeline} illustrates AQI category shifts, highlighting high-pollution episodes.
@@ -344,7 +346,7 @@ Figure~\ref{fig:predicted-vs-actual-comparison} compares predicted versus actual
 \subsection{Comparison with Reference Baseline Literature (RBL)}\label{subsec:rbl-comparison}
 We contextualize our empirical results against the reference baseline literature (RBL) by Vu et al.~\cite{vu2022geostationary}, who modeled PM2.5 levels during the 2018 California Camp Fire using a satellite-augmented Random Forest framework.
 
-Vu et al.\ achieved a temporal cross-validation $R^2$ of 0.8500 and an out-of-bag $R^2$ of 0.9200 by integrating high-resolution GOES-16 satellite Aerosol Optical Depth (AOD), HRRR meteorology, and SMOTE oversampling. In our benchmark, our top short-term nowcasting model (XGBoost) achieves a comparable test $R^2$ of 0.8711 (and Random Forest achieves $R^2 = 0.8528$), validating that tabular meteorological attributes paired with autoregressive AQI lags match near-term estimation performance.
+Vu et al.\ achieved a temporal cross-validation $R^2$ of 0.8500 and an out-of-bag $R^2$ of 0.9200 by integrating high-resolution GOES-16 satellite Aerosol Optical Depth (AOD), HRRR meteorology, and SMOTE oversampling. In our benchmark, our top short-term nowcasting model (XGBoost) achieves a comparable test $R^2$ of 0.8711 (and Random Forest achieves $R^2 = 0.8528$), demonstrating a qualitative comparison where tabular meteorological attributes paired with autoregressive AQI lags achieve comparable near-term performance despite different evaluation scopes and dataset conditions.
 
 \begin{table}[htbp]
 \caption{Comparative overview of our benchmark models against the Reference Baseline Literature (RBL) by Vu et al.~\cite{vu2022geostationary}.}\label{tab:rbl-comparison}
@@ -393,7 +395,7 @@ Long-term & Without spatial lags & 34 & 13.5542 & 19.1877 & 0.4711 & $-$0.0286 &
 \end{tabular*}
 \end{table}
 
-Removing VPD alters $R^2$ by $< 0.003$ across settings. VPD acts as an interpretable dryness descriptor rather than a standalone accuracy driver. Spatial lags show mixed impact: removing them slightly improves short-term $R^2$ while marginally raising long-term MAE.
+Removing VPD alters $R^2$ by $< 0.003$ across settings. VPD acts as an interpretable dryness descriptor rather than a standalone accuracy driver. Spatial lags show mixed impact: removing them slightly improves short-term $R^2$ while reducing long-term MAE (improving long-term MAE by 0.0286). Furthermore, the long-term configuration uses 49 features compared to 47 in short-term nowcasting because local short-term lags ($t-1$ to $t-23$) are replaced by expanded multi-station spatial aggregates and day-prior contextual indicators.
 
 \section{Extreme-Event Analysis}\label{sec:extreme-analysis}
 We define extreme AQI using the 99th percentile threshold:
@@ -430,7 +432,7 @@ The authors acknowledge the U.S. Environmental Protection Agency for providing p
 \item \textbf{Funding}: Not applicable.
 \item \textbf{Conflict of interest}: The authors declare no competing interests.
 \item \textbf{Data availability}: The datasets generated and analysed during the current study are available from the EPA AQS and Open-Meteo public repositories.
-\item \textbf{Code availability}: Code and reproducibility materials are available upon reasonable request.
+\item \textbf{Code availability}: The code, data processing pipelines, and reproducibility materials are available in an anonymous repository for double-blind peer review at \url{https://anonymous.4open.science/r/AQI-California-Benchmark-2025}.
 \item \textbf{Author contribution}: All authors contributed to the study conception and design. Data collection, analysis, and implementation were performed by all authors. All authors read and approved the final manuscript.
 \end{itemize}
 
