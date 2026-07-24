@@ -546,3 +546,88 @@ Xin cảm ơn hội đồng đã lắng nghe!"
 2. **Relative Accuracy ($100\% - \text{wMAPE}$):** Là chỉ số vận hành (operational metric) nhóm thiết kế thêm trên giao diện Web App cho người dùng phổ thông. Nhóm dùng $\text{wMAPE} = \frac{\sum |y_i - \hat{y}_i|}{\sum y_i}$ (Weighted MAPE) thay vì MAPE thông thường để tránh hiện tượng bùng nổ phân số khi AQI tiệm cận 0. Con số $67.70\%$ chỉ phản ánh rằng tổng sai số tuyệt đối của Climatology chiếm $32.30\%$ quy mô AQI thực tế.
 Tóm lại, trong bài báo nghiên cứu nhóm hoàn toàn tuân thủ chuẩn mực bằng bộ ba MAE, RMSE, $R^2$, còn Relative Accuracy là chỉ số trực quan giao diện giúp cán bộ quản lý dễ ước lượng tỷ lệ sai số theo phần trăm ạ."
 
+---
+
+## PHỤ LỤC: BẢNG GIẢI THÍCH TỪ VIẾT TẮT (GLOSSARY)
+
+> [!TIP]
+> Học thuộc phần này trước buổi bảo vệ. Giám khảo hay hỏi về **R², MAE, RMSE, VPD** và **Leakage**.
+
+---
+
+### 📊 Metrics — Chỉ số đánh giá mô hình
+
+| Viết tắt | Tiếng Anh | Ý nghĩa |
+|---|---|---|
+| **R²** | R-squared | Hệ số xác định — đo mô hình giải thích được bao nhiêu % biến động của dữ liệu. R²=1 là hoàn hảo, R²=0 là vô dụng, R²<0 còn tệ hơn đoán mù |
+| **MAE** | Mean Absolute Error | Sai số tuyệt đối trung bình — trung bình khoảng cách giữa dự báo và thực tế (đơn vị: AQI). Mọi sai số bị phạt ngang nhau |
+| **RMSE** | Root Mean Squared Error | Căn bậc 2 của sai số bình phương trung bình — **phạt nặng hơn MAE** với các lỗi lớn. Quan trọng hơn trong bài toán cháy rừng |
+| **wMAPE** | Weighted Mean Absolute Percentage Error | Sai số phần trăm tuyệt đối trung bình có trọng số — dùng trên Dashboard cho người dùng phổ thông, tránh bùng nổ phân số khi AQI gần 0 |
+
+---
+
+### 🤖 Tên mô hình (Models)
+
+| Viết tắt | Tiếng Anh | Ý nghĩa |
+|---|---|---|
+| **RF** | Random Forest | Rừng ngẫu nhiên — tập hợp nhiều cây quyết định, mỗi cây bỏ phiếu độc lập |
+| **XGBoost** | Extreme Gradient Boosting | Thuật toán Boosting mạnh nhất, các cây được xây lần lượt, cây sau sửa lỗi cây trước |
+| **LightGBM** | Light Gradient Boosting Machine | Phiên bản nhanh hơn XGBoost của Microsoft, dùng Histogram-based splitting |
+| **CatBoost** | Categorical Boosting | Boosting của Yandex, xử lý tốt dữ liệu phân loại (categorical) |
+| **Ridge** | Ridge Regression | Hồi quy tuyến tính có regularization L2 — phạt các hệ số quá lớn để chống overfitting |
+| **CV** | Cross-Validation | Kiểm định chéo — chia nhiều fold để đánh giá mô hình công bằng hơn |
+| **GridSearchCV** | Grid Search Cross-Validation | Tự động thử mọi tổ hợp tham số + kiểm định chéo để tìm tham số tốt nhất |
+
+---
+
+### 🌫️ Dữ liệu & Domain Knowledge
+
+| Viết tắt | Tiếng Anh | Ý nghĩa |
+|---|---|---|
+| **AQI** | Air Quality Index | Chỉ số chất lượng không khí (0–500). >150 là Unhealthy, >300 là Hazardous |
+| **PM2.5** | Particulate Matter ≤ 2.5μm | Hạt bụi mịn đường kính ≤ 2.5 micromet — nguy hiểm cho phổi, xuyên vào máu |
+| **PM10** | Particulate Matter ≤ 10μm | Hạt bụi thô hơn PM2.5, ít nguy hiểm hơn nhưng vẫn gây hại |
+| **VPD** | Vapor Pressure Deficit | Độ thiếu hụt áp suất hơi nước — đo mức độ "khô khát" của không khí. VPD cao → không khí khô → thực vật dễ bắt lửa → nguy cơ cháy rừng cao |
+| **EPA** | Environmental Protection Agency | Cơ quan Bảo vệ Môi trường Mỹ — nguồn cấp dữ liệu AQI chính thức |
+| **AQS** | Air Quality System | Hệ thống cơ sở dữ liệu chất lượng không khí của EPA |
+| **UTC** | Coordinated Universal Time | Giờ quốc tế chuẩn — cần chuyển sang giờ địa phương California (UTC-7 hoặc UTC-8) |
+| **AOD** | Aerosol Optical Depth | Độ sâu quang học sol khí — dữ liệu vệ tinh NASA đo mật độ khói/bụi từ trên cao |
+
+---
+
+### ⚙️ Kỹ thuật Machine Learning & Pipeline
+
+| Viết tắt | Tiếng Anh | Ý nghĩa |
+|---|---|---|
+| **SHAP** | SHapley Additive exPlanations | Giải thích mô hình — cho biết feature nào đóng góp bao nhiêu vào từng dự báo cụ thể |
+| **pkl** | Pickle file | File lưu trữ object Python (mô hình đã train). Load ra là chạy được ngay, không cần train lại |
+| **EDA** | Exploratory Data Analysis | Phân tích dữ liệu khám phá — vẽ biểu đồ, thống kê mô tả để hiểu dữ liệu trước khi model |
+| **OHE** | One-Hot Encoding | Mã hóa biến phân loại thành vector 0/1 — tránh tạo thứ bậc giả tạo giữa các danh mục |
+
+---
+
+### 📐 Kỹ thuật Time-Series & Leakage
+
+| Viết tắt | Tiếng Anh | Ý nghĩa |
+|---|---|---|
+| **Lag** | Lag feature | Biến trễ — giá trị AQI của 1h, 2h, 3h... trước đó, giúp mô hình học "quán tính" của khói bụi |
+| **Spatial Lag** | Spatial Lag feature | Biến trễ không gian — AQI trung bình của các trạm lân cận, giúp mô hình biết "khói đang đến từ đâu" |
+| **Nowcasting** | Nowcasting (Short-term) | Dự báo gần — dùng lag 1–3h, biết rõ AQI quá khứ gần → R² cao (~0.87) |
+| **Forecasting** | 24h-ahead Forecasting | Dự báo xa — không có lag gần, phải dựa vào VPD và thời tiết → R² thấp hơn (~0.47) |
+| **Persistence** | Persistence (Naive Baseline) | Mô hình đơn giản: dự báo AQI giờ sau = AQI giờ này. Ngạc nhiên: thắng trong cực đoan Top 5%! |
+| **Data Leakage** | Data Leakage | Rò rỉ dữ liệu — khi thông tin tương lai vô tình chui vào tập train, làm kết quả đánh giá ảo tốt |
+| **Target Leakage** | Target Leakage | Dạng leakage đặc biệt: dùng biến liên quan trực tiếp đến Target làm feature (VD: dùng PM2.5 hiện tại để predict AQI hiện tại) |
+
+---
+
+### 📚 Học thuật & Rubric môn học
+
+| Viết tắt | Tiếng Anh | Ý nghĩa |
+|---|---|---|
+| **RBL** | Research-Based Learning | Phương pháp học dựa trên nghiên cứu — phải đối chiếu quyết định với paper học thuật |
+| **RQ** | Research Question | Câu hỏi nghiên cứu (RQ1, RQ2, RQ3) — định hướng toàn bộ đồ án |
+| **ST-GNN** | Spatio-Temporal Graph Neural Network | Mạng nơ-ron đồ thị không-thời gian — hướng nghiên cứu tương lai, thay thế tabular ML |
+| **IoT** | Internet of Things | Vạn vật kết nối — hướng phát triển Dashboard thành hệ thống cảnh báo SMS tự động |
+| **KPI** | Key Performance Indicator | Chỉ số hiệu suất then chốt — các thẻ số liệu nổi bật trên Dashboard |
+
+

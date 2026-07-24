@@ -387,8 +387,10 @@
       padding: 10px 0;
     }
     .image-container img {
-      max-width: 72%;
-      max-height: 55vh;
+      max-width: 90%;
+      max-height: 58vh;
+      width: auto;
+      height: auto;
       object-fit: contain;
       border-radius: 12px;
       border: 1px solid var(--border-color);
@@ -399,7 +401,7 @@
       font-size: 14px;
       color: var(--text-muted);
       text-align: center;
-      max-width: 80%;
+      max-width: 90%;
       line-height: 1.5;
     }
     .image-caption strong {
@@ -655,7 +657,7 @@
     <span class="section-tag">Step 3 — EDA</span>
     <h2 class="slide-title">EDA — Geospatial Analysis</h2>
     <div class="image-container">
-      <img src="../data/plots/paper_station_map.png" alt="AQS Station Map" />
+      <img src="../data/plots/paper_station_map.png" alt="AQS Station Map" style="max-width: 85%; max-height: 56vh;" />
       <p class="image-caption">Mapped AQS stations using Latitude/Longitude. Ensures spatial coverage across <strong>Fresno</strong>, <strong>Los Angeles</strong>, and <strong>San Jose</strong>. Charts generated via AI prompts — code &amp; evidence logged in AI Audit Log.</p>
     </div>
   </div>
@@ -668,7 +670,7 @@
     <span class="section-tag">Step 3 — EDA</span>
     <h2 class="slide-title">EDA — Multivariate Analysis</h2>
     <div class="image-container">
-      <img src="../data/plots/eda/03_correlation_heatmap.png" alt="Correlation Heatmap" />
+      <img src="../data/plots/eda/03_correlation_heatmap.png" alt="Correlation Heatmap" style="max-width: 75%; max-height: 56vh;" />
       <p class="image-caption">Correlation matrix across multiple features. <strong>Insight:</strong> Weak linear correlations justify the RBL decision to use non-linear (Tree-based) models to answer RQ1.</p>
     </div>
   </div>
@@ -681,7 +683,7 @@
     <span class="section-tag">Step 3 — EDA</span>
     <h2 class="slide-title">EDA — Univariate &amp; Bivariate Timeline</h2>
     <div class="image-container">
-      <img src="../data/plots/eda/02_target_aqi_time_patterns.png" alt="AQI Category Timeline" />
+      <img src="../data/plots/eda/02_target_aqi_time_patterns.png" alt="AQI Category Timeline" style="max-width: 95%; max-height: 56vh;" />
       <p class="image-caption">Analyzed AQI distribution and temporal patterns. <strong>Insight:</strong> Severe upper-tail spikes cluster in late summer — especially the <strong style="color: var(--highlight-yellow);">2020 Historic Wildfires</strong>. This directly sets context for <strong>RQ3</strong> stability evaluation.</p>
     </div>
   </div>
@@ -695,11 +697,11 @@
     <h2 class="slide-title">EDA — Distribution &amp; Outliers</h2>
     <div class="two-col" style="margin-top: 20px;">
       <div class="image-container" style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 12px;">
-        <img src="../data/plots/eda/paper_aqi_distribution.png" alt="AQI Distribution" style="max-height: 38vh;" />
+        <img src="../data/plots/eda/paper_aqi_distribution.png" alt="AQI Distribution" style="max-width: 100%; max-height: 42vh;" />
         <p class="image-caption" style="margin-top: 10px;">Distribution shows a heavy right tail.</p>
       </div>
       <div class="image-container" style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 12px;">
-        <img src="../data/plots/eda/paper_aqi_boxplots.png" alt="AQI Boxplots" style="max-height: 38vh;" />
+        <img src="../data/plots/eda/paper_aqi_boxplots.png" alt="AQI Boxplots" style="max-width: 100%; max-height: 42vh;" />
         <p class="image-caption" style="margin-top: 10px;">Extreme upper-tail spikes (wildfires).</p>
       </div>
     </div>
@@ -714,11 +716,11 @@
     <h2 class="slide-title">EDA — Seasonality Analysis</h2>
     <div class="two-col" style="margin-top: 20px;">
       <div class="image-container" style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 12px;">
-        <img src="../data/plots/eda/paper_aqi_seasonality.png" alt="AQI Seasonality" style="max-height: 38vh;" />
+        <img src="../data/plots/eda/paper_aqi_seasonality.png" alt="AQI Seasonality" style="max-width: 100%; max-height: 42vh;" />
         <p class="image-caption" style="margin-top: 10px;">Breakdown by Month, Season, and Day.</p>
       </div>
       <div class="image-container" style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 12px;">
-        <img src="../data/plots/eda/paper_aqi_violin.png" alt="AQI Violin Plots" style="max-height: 38vh;" />
+        <img src="../data/plots/eda/paper_aqi_violin.png" alt="AQI Violin Plots" style="max-width: 100%; max-height: 42vh;" />
         <p class="image-caption" style="margin-top: 10px;">Violin plots revealing volatile summer/autumn.</p>
       </div>
     </div>
@@ -732,7 +734,7 @@
     <span class="section-tag">Step 3 — EDA</span>
     <h2 class="slide-title">EDA — AQI &amp; Vapor Pressure Deficit (VPD)</h2>
     <div class="image-container" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding-top: 20px;">
-      <img src="../data/plots/eda/paper_aqi_vpd_relationship.png" alt="AQI and VPD" style="max-height: 55vh; border-radius: 12px;" />
+      <img src="../data/plots/eda/paper_aqi_vpd_relationship.png" alt="AQI and VPD" style="max-width: 92%; max-height: 56vh; border-radius: 12px;" />
       <p class="image-caption" style="margin-top: 20px; font-size: 16px; max-width: 900px;">Monthly trend comparing AQI and VPD. <strong style="color: var(--highlight-yellow);">Insight:</strong> Strong physical correlation during dry wildfire months.</p>
     </div>
   </div>
@@ -747,15 +749,15 @@
     <div class="split-layout" style="margin-top: 10px;">
       <div class="split-left" style="flex: 0.5;">
         <div class="image-container" style="padding: 5px; background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 10px;">
-          <img src="../data/plots/eda/paper_aqi_extreme_events_heatmap.png" alt="Extreme Events Heatmap" style="max-height: 25vh;" />
+          <img src="../data/plots/eda/paper_aqi_extreme_events_heatmap.png" alt="Extreme Events Heatmap" style="max-width: 100%; max-height: 28vh;" />
         </div>
         <div class="image-container" style="padding: 5px; background: rgba(255,255,255,0.05); border-radius: 12px;">
-          <img src="../data/plots/eda/paper_aqi_extreme_events_bar.png" alt="Extreme Events Bar Chart" style="max-height: 25vh;" />
+          <img src="../data/plots/eda/paper_aqi_extreme_events_bar.png" alt="Extreme Events Bar Chart" style="max-width: 100%; max-height: 28vh;" />
         </div>
       </div>
       <div class="split-right" style="flex: 0.5;">
         <div class="image-container" style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 12px; height: 100%; display: flex; flex-direction: column; justify-content: center;">
-          <img src="../data/plots/eda/paper_aqi_outlier_detection.png" alt="AQI Outlier Detection" style="max-height: 35vh;" />
+          <img src="../data/plots/eda/paper_aqi_outlier_detection.png" alt="AQI Outlier Detection" style="max-width: 100%; max-height: 40vh;" />
           <p class="image-caption" style="margin-top: 15px;"><strong>Insight:</strong> 2020 (August Complex) and 2025 (Palisades) dominate the extreme upper-tail events (Top 1%), perfectly justifying our manual Holdout/Test year selection.</p>
         </div>
       </div>
@@ -1046,7 +1048,7 @@
         <div class="image-container">
           <img src="../data/plots/dashboard_creek_fire_extreme.png"
                alt="Creek Fire 2020 — Models vs Actual AQI (Live Dashboard)"
-               style="max-width: 100%; border-radius: 10px;" />
+               style="max-width: 100%; max-height: 44vh; border-radius: 10px;" />
           <p class="image-caption" style="max-width: 95%;">
             <strong style="color: var(--highlight-red);">Creek Fire 2020 (Live Dashboard):</strong>
             Actual AQI spiked to <strong>390 (Hazardous)</strong> — both XGBoost &amp; Linear Ridge predicted only ~150–200.
@@ -1065,7 +1067,7 @@
     <span class="section-tag">Step 8 — Diagnostics</span>
     <h2 class="slide-title">Prediction Diagnostics (Predicted vs Actual)</h2>
     <div class="image-container" style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding-top: 20px;">
-      <img src="../data/plots/paper_lightgbm_predicted_vs_actual.png" alt="LightGBM Predicted vs Actual" style="max-height: 55vh; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+      <img src="../data/plots/paper_lightgbm_predicted_vs_actual.png" alt="LightGBM Predicted vs Actual" style="max-width: 92%; max-height: 57vh; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
       <p class="image-caption" style="margin-top: 20px; font-size: 16px; max-width: 900px;">Visualizing <strong>LightGBM</strong> predictions against actual AQI. <strong style="color: var(--highlight-yellow);">Insight:</strong> The model successfully captures the general trend and central ranges but exhibits some variance at extreme high-end peaks.</p>
     </div>
   </div>
