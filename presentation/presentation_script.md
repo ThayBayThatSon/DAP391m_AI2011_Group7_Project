@@ -234,7 +234,28 @@ Chính Insight quan trọng này là nền tảng để nhóm biện luận cho 
 
 ---
 
-## SLIDE 14: STEP 4 - FEATURE ENGINEERING
+## SLIDE 14: EDA — SQL QUERY: EXTREME AQI EVENTS
+*(Layout: Hai cột — Trái là SQL Query code, Phải là bảng kết quả query)*
+**[ON SLIDE]**
+**Step 3: EDA — SQL Query: Extreme AQI Events**
+- SQL CTE isolates hours where `target_aqi > 151.84` (Very Unhealthy threshold).
+- Computes each `(year, month)` pair's share of **all** extreme hours across the dataset.
+- **Insight:** Sep 2020 alone accounts for **11.96%** of all extreme hours.
+
+**[SCRIPT]**
+"Tiếp theo nhóm xin giới thiệu một EDA đặc biệt theo yêu cầu môn học: Phân tích dữ liệu bằng SQL.
+
+Nhìn vào màn hình, phía bên trái là câu truy vấn SQL mà nhóm sử dụng để bóc tách các giờ ô nhiễm cực đoan — cụ thể là những giờ có AQI vượt ngưỡng 151.84, tương đương mức 'Rất có hại cho sức khỏe' (Very Unhealthy).
+
+Kỹ thuật nhóm dùng là CTE — Common Table Expression — để trước tiên lọc ra các giờ vi phạm, tính tổng số giờ cực đoan, sau đó tính tỷ lệ phần trăm đóng góp của từng tháng trong từng năm.
+
+Phía bên phải là bảng kết quả truy vấn. Hội đồng có thể thấy ngay: Tháng 9 năm 2020 một mình chiếm tới **11.96%** toàn bộ số giờ ô nhiễm cực đoan trong bộ dữ liệu 8 năm! 
+
+Con số này xác nhận định lượng (quantitative confirmation) điều mà Heatmap và Bar chart EDA trước đó đã gợi ý định tính: mùa cháy rừng năm 2020 là sự kiện thảm họa bất thường, và hoàn toàn xứng đáng được cô lập làm tập Validation trong phần Human Delta."
+
+---
+
+## SLIDE 15: STEP 4 - FEATURE ENGINEERING
 **[ON SLIDE]**
 **Step 4: Feature Engineering**
 - **Handling:** Outliers retained; Missing interpolated (6h limit); No log-transform.
@@ -256,7 +277,7 @@ Và cuối cùng về Scaling: Nhóm quyết định không dùng MinMaxScaler h
 
 ---
 
-## SLIDE 15: INTERACTIVE DASHBOARD DEMO
+## SLIDE 16: INTERACTIVE DASHBOARD DEMO
 *(Layout: Trái là văn bản, Phải là QR Code + Hình chụp khung Cảnh báo Air Stagnation)*
 **[ON SLIDE]**
 **Interactive AI Dashboard (Streamlit & Plotly)**
@@ -282,7 +303,7 @@ Mời cô và hội đồng quét mã QR trên màn hình bằng điện thoại
 
 ---
 
-## SLIDE 16: STEP 5 - DATASET PARTITION (HUMAN DELTA)
+## SLIDE 17: STEP 5 - DATASET PARTITION (HUMAN DELTA)
 **[ON SLIDE]**
 **Step 5: Climate-context-aware Temporal Split**
 - Prevent Data & Context Leakage (No random split).
@@ -305,7 +326,7 @@ Khúc này AI sẽ không bao giờ tự tư duy được nếu thiếu Domain K
 
 ---
 
-## SLIDE 17: STEP 8 & 9 - PIPELINE & GRIDSEARCHCV
+## SLIDE 18: STEP 8 & 9 - PIPELINE & GRIDSEARCHCV
 **[ON SLIDE]**
 **Step 8 & 9: Sklearn Pipeline & GridSearchCV Tuning**
 - **Step 8 (GridSearchCV):** TimeSeriesSplit + GridSearchCV applied to best models to tune hyperparameters.
@@ -323,8 +344,8 @@ Cuối cùng, Backend FastAPI sẽ nạp Model, trong khi Frontend Streamlit đ�
 
 ---
 
-## SLIDE 18: STEP 6-7 - MODEL COMPARISON TEMPLATE
-*(Layout: Bảng Table so sánh điểm số bên Trái theo chuẩn Rubric, Hình chụp bài báo Baseline bên Phải)*
+## SLIDE 19: STEP 6-7 - MODEL COMPARISON TEMPLATE
+*(Layout: Bảng Table so sánh điểm số bên Trái theo chuẩn Rubric, 2 hình chụp trực tiếp từ bài báo Baseline bên Phải)*
 **[ON SLIDE]**
 **Step 6-7: Model Comparison (Ours vs Baseline)**
 - **Baseline Paper:** *Estimating surface PM2.5... (Vu et al., 2022)*
@@ -335,24 +356,26 @@ Cuối cùng, Backend FastAPI sẽ nạp Model, trong khi Frontend Streamlit đ�
 | XGBoost | **9.47** | **5.83** | **0.8711** | **+0.0211** |
 | LightGBM | 9.48 | 6.06 | 0.8706 | +0.0206 |
 | Baseline (Vu et al., 2022) | ~9.70 | ~6.50 | 0.8500 | reference (qualitative) |
-*XGBoost and LightGBM lead short-term nowcasting ($R^2 = 0.8711$). At 24h horizon, Linear Ridge achieves lowest MAE (13.5179).*
+*XGBoost và LightGBM dẫn đầu Short-term Nowcasting ($R^2 = 0.8711$). Ở kịch bản 24h, Linear Ridge đạt MAE thấp nhất (13.5179).*
 
 **[SCRIPT]**
-"Đến phần Đánh giá mô hình. 
+"Đến phần Đánh giá và So sánh mô hình — đây là slide chính của cả nhóm.
 
-Như hội đồng có thể thấy trên màn hình, phía bên phải là hình chụp trực tiếp bài báo nghiên cứu gốc của tác giả Vu và cộng sự xuất bản năm 2022. Đây là RBL Baseline mà nhóm đối chiếu định tính (qualitative comparison).
+Bên trái màn hình là bảng Leaderboard đầy đủ của 5 mô hình nhóm benchmark. Con số nổi bật nhất: **XGBoost Short-term đạt R² = 0.8711**, bỏ xa tất cả đối thủ.
 
-Bài báo Baseline dù dùng cả ảnh Vệ tinh phức tạp nhưng đạt R2 khoảng 0.8500. 
+Bên phải, nhóm đặt trực tiếp 2 hình chụp từ bài báo gốc của tác giả Vu và cộng sự (2022) — đây là **RBL Baseline** mà nhóm đối chiếu định tính. Hình trên là Fig. 2 — 6 scatter plots Predicted vs Actual PM2.5 của cả 3 model baseline (AQS-only, AQS+PurpleAir, AQS+PurpleAir+SMOTE). Hình dưới là phần Results (Section 3) từ bài báo, thể hiện con số R² cụ thể kèm bản đồ phân bổ PM2.5 trên California.
 
-Trong khi đó, nhìn vào bảng so sánh bên trái, mô hình XGBoost thuần Tabular của nhóm em đạt R2 lên tới **0.8711** ở mốc short-term nowcasting. 
+Bài báo Baseline — dù được trang bị ảnh vệ tinh GOES-16 và kỹ thuật SMOTE — cũng chỉ đạt **Temporal CV R² = 0.85** ở mô hình tốt nhất (AQS+PurpleAir+SMOTE).
 
-Đặc biệt, ở kịch bản dự báo xa 24 giờ (Table 3), XGBoost dẫn đầu về R2 (0.4648) và RMSE (19.3007), nhưng mô hình **Linear Ridge** lại xuất sắc đạt chỉ số MAE thấp nhất (13.5179). Trong khi đó, mô hình cơ sở Persistence (Naive) hoàn toàn sụp đổ ở mốc 24h (R2 rớt xuống 0.23).
+Trong khi đó, mô hình XGBoost thuần Tabular của nhóm đạt **R² = 0.8711** — đã vượt con số đó chỉ bằng dữ liệu thời tiết và biến trễ. 
 
-Nhóm nhấn mạnh đây là sự đối chiếu định tính do khác biệt về phạm vi và tập dữ liệu, khẳng định mô hình Tabular kèm biến trễ hoàn toàn có thể đạt hiệu năng tiệm cận mà không cần dữ liệu vệ tinh đắt đỏ."
+Đặc biệt ở kịch bản 24 giờ: XGBoost dẫn đầu R² (0.4648) nhưng Linear Ridge lại thắng về MAE thấp nhất (13.5179). Persistence (Naive) hoàn toàn sụp đổ ở 24h — R² chỉ còn 0.23.
+
+Nhóm nhấn mạnh đây là so sánh định tính do bối cảnh khác nhau: bài báo tập trung không gian rộng California năm 2018 với ảnh vệ tinh; còn nhóm tập trung Time-Series cụ thể cho 3 trạm 2018-2025 với biến trễ. Sức mạnh của autoregressive lag chính là vũ khí bí mật giúp nhóm đạt hiệu năng tiệm cận mà không cần dữ liệu vệ tinh đắt đỏ."
 
 ---
 
-## SLIDE 19: EXTREME SCENARIO ANALYSIS
+## SLIDE 20: EXTREME SCENARIO ANALYSIS
 **[ON SLIDE]**
 **Step 7: Extreme-Event Scenario (Top 5% AQI)**
 - Evaluated solely on Top 5% extreme slices.
@@ -369,7 +392,7 @@ Insight sâu sắc này cho thấy khói bụi có tính tự tương quan cực
 
 ---
 
-## SLIDE 20: PREDICTED VS ACTUAL
+## SLIDE 21: PREDICTED VS ACTUAL
 *(Chèn biểu đồ: Predicted vs Actual)*
 **[ON SLIDE]**
 **Step 8: Prediction Diagnostics (Predicted vs Actual)**
@@ -383,7 +406,7 @@ Nhìn chung, mô hình bám rất sát xu hướng của chuỗi dữ liệu tro
 
 ---
 
-## SLIDE 21: STEP 10 - CONCLUSION
+## SLIDE 22: STEP 10 - CONCLUSION
 **[ON SLIDE]**
 **Step 10: Conclusion**
 1. **RQ1:** Tabular ML models achieve robust accuracy ($R^2 = 0.8711$) under leakage-safe protocols.
@@ -399,7 +422,7 @@ và khẳng định biến vật lý VPD giúp củng cố bối cảnh khí h�
 
 ---
 
-## SLIDE 22: AI AUDIT LOG & HALLUCINATIONS
+## SLIDE 23: AI AUDIT LOG & HALLUCINATIONS
 **[ON SLIDE]**
 **AI Audit Log & Human Delta**
 - 2 Excel Audit Logs provided (Tracking > 20 prompts).
@@ -429,7 +452,7 @@ Ba ví dụ này chứng minh: Kiến thức chuyên môn (Domain Knowledge) c�
 
 ---
 
-## SLIDE 23: LIMITATIONS & FUTURE DIRECTIONS
+## SLIDE 24: LIMITATIONS & FUTURE DIRECTIONS
 **[ON SLIDE]**
 **Limitations & Future Directions**
 - **Current Limitations:**

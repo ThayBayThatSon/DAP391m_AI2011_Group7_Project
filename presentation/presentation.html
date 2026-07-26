@@ -765,9 +765,30 @@
   </div>
 
   <!-- ============================================================
-       SLIDE 14: STEP 4 – FEATURE ENGINEERING
+       SLIDE 14: EDA — SQL QUERY: EXTREME EVENTS
        ============================================================ -->
   <div class="slide" data-slide="14">
+    <span class="slide-number">14 / 25</span>
+    <span class="section-tag">Step 3 — EDA</span>
+    <h2 class="slide-title">EDA — SQL Query: Extreme AQI Events</h2>
+    <div class="two-col" style="margin-top: 16px; gap: 24px; align-items: flex-start;">
+      <div class="image-container" style="padding: 12px; background: rgba(255,255,255,0.05); border-radius: 12px; flex: 1.1;">
+        <p style="font-size: 13px; color: var(--muted-text); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">SQL Query</p>
+        <img src="../data/plots/eda_extreme_events_sql_query.jpg" alt="SQL Query – Extreme AQI Events" style="max-width: 100%; max-height: 48vh; border-radius: 8px;" />
+        <p class="image-caption" style="margin-top: 10px;">CTE isolates hours where <code>target_aqi &gt; 151.84</code> (Very Unhealthy threshold), then computes each month's share of all extreme hours.</p>
+      </div>
+      <div class="image-container" style="padding: 12px; background: rgba(255,255,255,0.05); border-radius: 12px; flex: 0.9;">
+        <p style="font-size: 13px; color: var(--muted-text); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Query Result</p>
+        <img src="../data/plots/eda_extreme_events_sql_result.jpg" alt="SQL Result – Extreme AQI Events" style="max-width: 100%; max-height: 48vh; border-radius: 8px;" />
+        <p class="image-caption" style="margin-top: 10px;"><strong style="color: var(--highlight-yellow);">Insight:</strong> Sep 2020 alone accounts for <strong>11.96 %</strong> of all extreme hours — confirming the 2020 wildfire season as the dominant extreme event.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 15: STEP 4 – FEATURE ENGINEERING
+       ============================================================ -->
+  <div class="slide" data-slide="15">
     <span class="slide-number">10 / 24</span>
     <span class="section-tag">Step 4</span>
     <h2 class="slide-title">Feature Engineering</h2>
@@ -988,15 +1009,20 @@
         <p style="font-size: 13px; color: var(--text-muted); margin-top: 6px;"><strong style="color: var(--highlight-yellow);">Insight:</strong> Qualitative comparison vs Vu et al. (2022). XGBoost leads 24h $R^2$ (0.4648), while Linear Ridge achieves lowest 24h MAE (13.5179).</p>
       </div>
       <div class="split-right" style="flex: 0.7;">
-        <div class="card" style="text-align: center;">
-          <div class="card-title">Baseline Paper</div>
-          <p style="font-size: 14px; color: var(--off-white); line-height: 1.6;">
-            Vu et al., 2022<br/>
-            <em>"Estimating surface PM2.5…"</em>
-          </p>
-          <div style="margin-top: 16px; padding: 12px; background: rgba(255, 215, 0, 0.08); border-radius: 8px; border: 1px solid rgba(255, 215, 0, 0.2);">
-            <p style="font-size: 22px; font-weight: 800; color: var(--highlight-yellow);">✓ Beaten</p>
-            <p style="font-size: 12px; color: var(--text-muted);">Using pure tabular ML</p>
+        <div style="display: flex; flex-direction: column; gap: 8px; height: 100%;">
+          <p style="font-size: 12px; text-align: center; color: var(--muted-text); text-transform: uppercase; letter-spacing: 1px; margin: 0;">Reference Baseline — Vu et al. (2022)</p>
+          <div style="display: flex; gap: 8px; flex: 1; align-items: stretch;">
+            <div class="image-container" style="padding: 6px; background: rgba(255,255,255,0.05); border-radius: 10px; flex: 1; display: flex; flex-direction: column;">
+              <p style="font-size: 10px; color: var(--muted-text); text-align: center; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Scatter Plots (Spatial &amp; Temporal CV)</p>
+              <img src="../data/plots/rbl_paper_scatter_plots.png" alt="RBL Paper — Scatter plots" style="max-width: 100%; max-height: 38vh; border-radius: 6px; display: block; margin: 0 auto; object-fit: contain;" />
+            </div>
+            <div class="image-container" style="padding: 6px; background: rgba(255,255,255,0.05); border-radius: 10px; flex: 1; display: flex; flex-direction: column;">
+              <p style="font-size: 10px; color: var(--muted-text); text-align: center; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Results Text &amp; PM2.5 Maps</p>
+              <img src="../data/plots/rbl_paper_results_text.png" alt="RBL Paper — Results and maps" style="max-width: 100%; max-height: 38vh; border-radius: 6px; display: block; margin: 0 auto; object-fit: contain;" />
+            </div>
+          </div>
+          <div style="text-align: center; padding: 6px 8px; background: rgba(255, 215, 0, 0.08); border-radius: 8px; border: 1px solid rgba(255, 215, 0, 0.2);">
+            <p style="font-size: 15px; font-weight: 800; color: var(--highlight-yellow); margin: 0;">✓ Beaten &nbsp;|&nbsp; OOB R²=0.92 / Temporal CV R²=0.85 (SMOTE+satellite) → Ours XGBoost R²=0.8711</p>
           </div>
         </div>
       </div>
